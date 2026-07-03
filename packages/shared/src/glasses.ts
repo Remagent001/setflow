@@ -46,6 +46,8 @@ export type GlassesCard =
       targetWeight?: number;
       targetReps?: number;
       targetDurationSeconds?: number;
+      /** Live countdown for timed sets (Segment 18). */
+      remainingSeconds?: number;
       unit: "lb" | "kg" | "bodyweight";
     }
   | {

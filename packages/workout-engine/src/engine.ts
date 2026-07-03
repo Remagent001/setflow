@@ -84,6 +84,8 @@ export type EngineSnapshot = {
   pendingLog: PendingLog | null;
   /** Session-time weight override for the current exercise, if the user set one. */
   weightOverride: number | null;
+  /** Countdown within a timed set; null for rep-based sets. */
+  setRemainingSeconds: number | null;
   card: GlassesCard;
 };
 
@@ -106,6 +108,8 @@ export class WorkoutEngine {
   private exerciseIndex = 0;
   private setNumber = 1;
   private restRemainingSeconds = 0;
+  /** Countdown for timed sets; null for rep-based sets. */
+  private setRemainingSeconds: number | null = null;
   private pendingLog: PendingLog | null = null;
   private results: EngineSetResult[] = [];
   /** Session-time weight adjustments, keyed by workout step id. */
@@ -204,6 +208,12 @@ export class WorkoutEngine {
     this.notify();
   }
 
+  /** Enter the current set, arming the countdown when the set is timed. */
+  private enterActiveSet(): void {
+    this.status = "active_set";
+    this.setRemainingSeconds = this.current?.step.targetDurationSeconds ?? null;
+  }
+
   /** Generic forward: preview → first exercise; demo → set; rest → next set/exercise. */
   next(): void {
     switch (this.status) {
@@ -211,10 +221,8 @@ export class WorkoutEngine {
         this.status = "exercise_preview";
         break;
       case "exercise_preview":
-        this.status = "active_set";
-        break;
       case "demo":
-        this.status = "active_set";
+        this.enterActiveSet();
         break;
       case "resting":
       case "exercise_complete":
@@ -262,7 +270,7 @@ export class WorkoutEngine {
   /** Enter the current set directly (same as next() from a preview/demo). */
   startSet(): void {
     if (this.status !== "exercise_preview" && this.status !== "demo") return;
-    this.status = "active_set";
+    this.enterActiveSet();
     this.notify();
   }
 
@@ -408,8 +416,20 @@ export class WorkoutEngine {
     this.complete();
   }
 
-  /** Advance time by one second. Only rest phases care; call it from a 1s interval. */
+  /** Advance time by one second: rest countdowns and timed-set countdowns. */
   tick(): void {
+    if (this.status === "active_set" && this.setRemainingSeconds !== null) {
+      this.setRemainingSeconds -= 1;
+      if (this.setRemainingSeconds <= 0) {
+        // Timed set finished: log it at the full duration.
+        const step = this.current;
+        this.setRemainingSeconds = null;
+        this.completeSet({ durationSeconds: step?.step.targetDurationSeconds });
+        return;
+      }
+      this.notify();
+      return;
+    }
     if (this.status !== "resting" && this.status !== "exercise_complete") return;
     if (this.restRemainingSeconds > 0) this.restRemainingSeconds -= 1;
     if (this.restRemainingSeconds <= 0) {
@@ -466,9 +486,50 @@ export class WorkoutEngine {
     this.results.push(this.buildResult(step, this.setNumber, partial));
   }
 
+  /** Indices of the contiguous superset group containing the step, if any. */
+  private groupFor(index: number): number[] | null {
+    const g = this.steps[index]?.step.supersetGroup;
+    if (!g) return null;
+    const members: number[] = [index];
+    for (let i = index - 1; i >= 0 && this.steps[i]?.step.supersetGroup === g; i--) {
+      members.unshift(i);
+    }
+    for (let i = index + 1; i < this.steps.length && this.steps[i]?.step.supersetGroup === g; i++) {
+      members.push(i);
+    }
+    return members.length > 1 ? members : null;
+  }
+
   private advanceAfterSet(): void {
     const step = this.current;
     if (!step) return;
+
+    // Superset round: A1 -> B1 (no rest) -> rest -> A2 -> B2 ...
+    const group = this.groupFor(this.exerciseIndex);
+    if (group) {
+      const pos = group.indexOf(this.exerciseIndex);
+      if (pos < group.length - 1) {
+        this.exerciseIndex = group[pos + 1] ?? this.exerciseIndex;
+        this.status = "exercise_preview";
+        this.notify();
+        return;
+      }
+      if (this.setNumber < this.setCountFor(step)) {
+        // Round done: rest, then back to the group's first member.
+        this.exerciseIndex = group[0] ?? this.exerciseIndex;
+        this.status = "resting";
+        this.restRemainingSeconds = step.step.restSeconds;
+        if (this.restRemainingSeconds <= 0) {
+          this.advanceFromRest();
+          return;
+        }
+        this.notify();
+        return;
+      }
+      this.goToNextExercise();
+      return;
+    }
+
     if (this.setNumber < this.setCountFor(step)) {
       // More sets in this exercise: rest, then the next set.
       this.status = "resting";
@@ -502,7 +563,7 @@ export class WorkoutEngine {
   private advanceFromRest(): void {
     if (this.status === "resting") {
       this.setNumber += 1;
-      this.status = "active_set";
+      this.enterActiveSet();
     } else if (this.status === "exercise_complete") {
       this.exerciseIndex += 1;
       this.setNumber = 1;
@@ -539,6 +600,7 @@ export class WorkoutEngine {
       results: [...this.results],
       pendingLog: this.pendingLog ? { ...this.pendingLog } : null,
       weightOverride: step ? (this.weightOverrides.get(step.step.id) ?? null) : null,
+      setRemainingSeconds: this.setRemainingSeconds,
       card: this.card(),
     };
   }
@@ -583,6 +645,7 @@ export class WorkoutEngine {
           targetWeight: step ? this.targetWeightFor(step) : undefined,
           targetReps: step?.step.targetReps,
           targetDurationSeconds: step?.step.targetDurationSeconds,
+          remainingSeconds: this.setRemainingSeconds ?? undefined,
           unit: this.unit,
         };
       case "listening_for_log": {

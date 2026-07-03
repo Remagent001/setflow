@@ -413,6 +413,69 @@ test("addSet during the between-exercise rest pulls you back for one more", () =
   assert.equal((active.card as { exerciseName: string }).exerciseName, "Bench Press");
 });
 
+test("timed set counts down via tick and auto-completes at zero", () => {
+  const w = sampleWorkout();
+  const first = w.steps[0];
+  if (!first) throw new Error("sample missing steps");
+  first.step.targetReps = undefined;
+  first.step.targetDurationSeconds = 3; // a 3-second plank, basically
+  const engine = createWorkoutEngine(w);
+  engine.start();
+  engine.next();
+  engine.startSet();
+
+  let snap = engine.snapshot();
+  assert.equal(snap.setRemainingSeconds, 3);
+  assert.equal((snap.card as { remainingSeconds?: number }).remainingSeconds, 3);
+
+  engine.tick();
+  snap = engine.snapshot();
+  assert.equal(snap.setRemainingSeconds, 2);
+
+  engine.tick();
+  engine.tick(); // hits zero -> auto-complete, into rest
+  snap = engine.snapshot();
+  assert.equal(snap.status, "resting");
+  assert.equal(snap.results[0]?.actualDurationSeconds, 3);
+  assert.equal(snap.results[0]?.status, "completed");
+});
+
+test("superset alternates exercises, rests after the round, loops back", () => {
+  const w = sampleWorkout(); // Bench (2 sets) then Row (1 set)
+  const [a, b] = w.steps;
+  if (!a || !b) throw new Error("sample missing steps");
+  a.step.supersetGroup = "A";
+  b.step.supersetGroup = "A";
+  b.step.setCount = 2; // members share the round count
+  const engine = createWorkoutEngine(w);
+  engine.start();
+  engine.next();
+  engine.startSet();
+  engine.completeSet(); // Bench set 1 -> straight to Row, NO rest
+
+  let snap = engine.snapshot();
+  assert.equal(snap.status, "exercise_preview");
+  assert.equal((snap.card as { exerciseName: string }).exerciseName, "Barbell Row");
+  assert.equal(snap.setNumber, 1);
+
+  engine.startSet();
+  engine.completeSet(); // Row set 1 -> round done -> rest, headed back to Bench
+  snap = engine.snapshot();
+  assert.equal(snap.status, "resting");
+  assert.equal((snap.card as { exerciseName?: string }).exerciseName, "Bench Press");
+
+  engine.skipRest(); // round 2 starts at Bench set 2
+  snap = engine.snapshot();
+  assert.equal(snap.status, "active_set");
+  assert.equal(snap.setNumber, 2);
+  assert.equal((snap.card as { exerciseName: string }).exerciseName, "Bench Press");
+
+  engine.completeSet(); // Bench set 2 -> Row set 2
+  engine.startSet();
+  engine.completeSet(); // Row set 2 -> whole group done -> workout complete (Row was last)
+  assert.equal(engine.snapshot().status, "workout_complete");
+});
+
 test("zero rest advances immediately without a rest state", () => {
   const w = sampleWorkout();
   const first = w.steps[0];

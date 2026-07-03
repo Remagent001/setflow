@@ -57,6 +57,11 @@ export type WorkoutStep = {
   workoutPlanId: string;
   exerciseId: string;
   orderIndex: number;
+  /**
+   * Adjacent steps sharing a group label run as a superset/circuit:
+   * A1 -> B1 -> rest -> A2 -> B2 ... Members should share setCount.
+   */
+  supersetGroup?: string;
   setCount: number;
   targetReps?: number;
   targetWeight?: number;

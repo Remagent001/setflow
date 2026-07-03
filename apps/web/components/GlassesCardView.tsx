@@ -71,6 +71,9 @@ function CardBody({ card }: { card: GlassesCard }) {
           <div style={dim}>
             SET {card.setNumber} / {card.setCount}
           </div>
+          {card.remainingSeconds != null && (
+            <div style={{ ...big, fontSize: 64 }}>{mmss(card.remainingSeconds)}</div>
+          )}
           <div style={big}>
             {card.targetWeight != null ? `${card.targetWeight} ${card.unit}` : ""}
             {card.targetWeight != null && card.targetReps != null ? " × " : ""}
