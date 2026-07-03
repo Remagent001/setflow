@@ -13,3 +13,12 @@ export {
   type EngineSetResult,
   type PendingLog,
 } from "./engine";
+
+export {
+  parseVoiceLog,
+  resolveVoiceLog,
+  type ParsedVoiceLog,
+  type ResolvedVoiceLog,
+  type VoiceIntent,
+  type VoiceLogContext,
+} from "./voice-parser";

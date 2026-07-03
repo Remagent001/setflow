@@ -7,7 +7,7 @@
   "types": "src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/engine.test.ts"
+    "test": "node --test src/engine.test.ts src/voice-parser.test.ts"
   },
   "dependencies": {
     "@setflow/shared": "*"
