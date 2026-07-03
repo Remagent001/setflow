@@ -1,19 +1,19 @@
 # Segment Status
 
 ## Current Segment
-Segment: 01
-Name: Shared Domain Types
+Segment: 02
+Name: Database Schema
 Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 00
-Commit: segment-00-repo-skeleton
+Segment: 01
+Commit: segment-01-shared-domain-types
 Date: 2026-07-02
-Notes: Monorepo skeleton validated (install/lint/typecheck/web build all pass).
+Notes: All domain/glasses/timer types compile; web + mobile import them.
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
-- [ ] Segment 01 — Shared Domain Types
+- [x] Segment 01 — Shared Domain Types
 - [ ] Segment 02 — Database Schema
 - [ ] Segment 03 — API Client
 - [ ] Segment 04 — Web Auth Shell
@@ -39,4 +39,4 @@ Notes: Monorepo skeleton validated (install/lint/typecheck/web build all pass).
 None.
 
 ## Next Step
-Start Segment 01 — Shared Domain Types (packages/shared).
+Start Segment 02 — Database Schema (packages/db). Note: needs a decision on Supabase (free account) vs local Prisma/Postgres before it can be validated end-to-end.
