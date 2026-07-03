@@ -1,4 +1,15 @@
-// @setflow/workout-engine - Segment 00 placeholder. Real implementation lands in its
-// dedicated segment per docs/ARCHITECTURE.md and the segmented build plan.
+// @setflow/workout-engine - the platform-agnostic workout state machine
+// (build doc section 12). Consumed by the mobile player (Segment 11) and the
+// glasses adapter preview (Segment 09).
 
-export const PACKAGE_NAME = "@setflow/workout-engine";
+export {
+  WorkoutEngine,
+  createWorkoutEngine,
+  type EngineStatus,
+  type EngineExerciseStep,
+  type EngineWorkout,
+  type EngineOptions,
+  type EngineSnapshot,
+  type EngineSetResult,
+  type PendingLog,
+} from "./engine";

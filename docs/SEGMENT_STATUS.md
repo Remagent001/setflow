@@ -1,15 +1,15 @@
 # Segment Status
 
 ## Current Segment
-Segment: 08
-Name: Workout Engine
+Segment: 09
+Name: Glasses Adapter Mock
 Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 07
-Commit: segment-07-workout-builder
+Segment: 08
+Commit: segment-08-workout-engine
 Date: 2026-07-02
-Notes: Full workout builder: create/edit/delete plans (title, description, difficulty, estimated duration), add exercise steps from the library, reorder with up/down (orderIndex persisted), inline per-step config (sets, reps, weight, duration, rest, cue, notes), two-click removes (no browser dialogs). Live-verified in Playwright including persistence across reload.
+Notes: Platform-agnostic WorkoutEngine state machine in packages/workout-engine: 11 states per build doc section 12, full navigation (start/next/previous/demo/pause/resume/skip set/skip exercise/skip rest/end), manual + voice-log-with-confirm/correct set logging, tick()-driven rest countdown with auto-advance, per-state GlassesCard generation, subscribe() for UIs, injectable clock. 12 unit tests pass (node --test).
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
@@ -20,7 +20,7 @@ Notes: Full workout builder: create/edit/delete plans (title, description, diffi
 - [x] Segment 05 — Exercise Library
 - [x] Segment 06 — Exercise Media
 - [x] Segment 07 — Workout Builder
-- [ ] Segment 08 — Workout Engine
+- [x] Segment 08 — Workout Engine
 - [ ] Segment 09 — Glasses Adapter Mock
 - [ ] Segment 10 — Mobile Shell
 - [ ] Segment 11 — Mobile Workout Player
@@ -39,4 +39,4 @@ Notes: Full workout builder: create/edit/delete plans (title, description, diffi
 None.
 
 ## Next Step
-Start Segment 08 — Workout Engine.
+Start Segment 09 — Glasses Adapter Mock.
