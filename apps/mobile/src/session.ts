@@ -16,6 +16,7 @@ import {
   type WorkoutEngine,
 } from "@setflow/workout-engine";
 import { getApi, MOCK_USER_ID } from "./api";
+import { getSettings } from "./settings";
 
 /** Journal fields minus the keys the store fills in itself. */
 export type JournalPatch = Partial<Omit<NewWorkoutJournal, "sessionId" | "userId">>;
@@ -35,7 +36,7 @@ let unsubscribe: (() => void) | null = null;
 
 export function startSession(planId: string, workout: EngineWorkout): ActiveSession {
   endSession();
-  const engine = createWorkoutEngine(workout);
+  const engine = createWorkoutEngine(workout, { unit: getSettings().weightUnit });
   const startedAtMs = Date.now();
 
   // Sequential write queue so saves never race each other.
@@ -91,7 +92,8 @@ export function startSession(planId: string, workout: EngineWorkout): ActiveSess
           difficulty: r.difficulty,
           note: r.note,
           loggedBy: r.loggedBy,
-          transcript: r.transcript,
+          // Privacy (Segment 20): transcripts are kept only when opted in.
+          transcript: getSettings().storeTranscripts ? r.transcript : undefined,
           confidence: r.confidence,
         });
       });

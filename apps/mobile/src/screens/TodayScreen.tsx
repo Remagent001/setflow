@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import type { WorkoutPlan } from "@setflow/shared";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 import { getApi } from "../api";
 import { getSession } from "../session";
 import { Button, Card, H1, Muted } from "../components/ui";
@@ -23,6 +23,7 @@ export default function TodayScreen({
 
   const today = plans?.[0];
   const active = getSession();
+  const styles = getStyles();
 
   return (
     <View style={styles.wrap}>
@@ -85,9 +86,9 @@ export default function TodayScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = themedStyles(() => StyleSheet.create({
   wrap: { flex: 1, padding: 20, gap: 14, backgroundColor: colors.bg },
   title: { color: colors.text, fontSize: 24, fontWeight: "800" },
   sub: { color: colors.text, fontSize: 15, fontWeight: "700", marginTop: 4 },
   rowTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
-});
+}));

@@ -8,6 +8,17 @@
   --accent: #7aa2ff;
   --green: #57d9a3;
 }
+/* Light theme (Segment 20): toggled from Settings, persisted per browser. */
+body.light {
+  --bg: #f2f4f8;
+  --panel: #ffffff;
+  --panel2: #e8ecf3;
+  --border: #d0d7e2;
+  --text: #1b2330;
+  --muted: #5f6b7d;
+  --accent: #3564d9;
+  --green: #118a5f;
+}
 * {
   box-sizing: border-box;
 }

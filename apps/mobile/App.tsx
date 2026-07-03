@@ -1,12 +1,13 @@
-// SetFlow mobile shell: mock auth + a deliberately simple hand-rolled
+﻿// SetFlow mobile shell: mock auth + a deliberately simple hand-rolled
 // navigator (three tabs + two pushed screens). A navigation library can
 // replace this later without touching the screens.
 
 import { useEffect, useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { colors } from "./src/theme";
+import { colors, getThemeMode, subscribeTheme, themedStyles } from "./src/theme";
 import { initApi } from "./src/api";
+import { initSettings } from "./src/settings";
 import LoginScreen from "./src/screens/LoginScreen";
 import TodayScreen from "./src/screens/TodayScreen";
 import WorkoutDetailScreen from "./src/screens/WorkoutDetailScreen";
@@ -35,15 +36,21 @@ export default function App() {
   const [pushed, setPushed] = useState<Pushed>(null);
   const [historyRefresh, setHistoryRefresh] = useState(0);
 
-  // Hydrate the offline store before any screen touches the api (Segment 17).
+  // Hydrate the offline store + settings before any screen renders.
   useEffect(() => {
-    initApi().then(() => setReady(true));
+    Promise.all([initApi(), initSettings()]).then(() => setReady(true));
   }, []);
+
+  // Theme toggles re-render the whole tree (stylesheets rebuild on read).
+  const [, bumpTheme] = useState(0);
+  useEffect(() => subscribeTheme(() => bumpTheme((n) => n + 1)), []);
+  const styles = getStyles();
+  const statusBarStyle = getThemeMode() === "dark" ? ("light" as const) : ("dark" as const);
 
   if (!ready) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar style="light" />
+        <StatusBar style={statusBarStyle} />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <Text style={{ color: colors.muted }}>Loading your data...</Text>
         </View>
@@ -54,7 +61,7 @@ export default function App() {
   if (!email) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar style="light" />
+        <StatusBar style={statusBarStyle} />
         <LoginScreen onSignIn={setEmail} />
       </SafeAreaView>
     );
@@ -108,7 +115,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar style="light" />
+      <StatusBar style={statusBarStyle} />
       <View style={{ flex: 1 }}>{screen}</View>
       {!pushed && (
         <View style={styles.tabBar}>
@@ -127,7 +134,7 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = themedStyles(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   tabBar: {
     flexDirection: "row",
@@ -139,4 +146,5 @@ const styles = StyleSheet.create({
   tabItem: { flex: 1, alignItems: "center", paddingVertical: 10, gap: 2 },
   tabIcon: { color: colors.muted, fontSize: 18 },
   tabLabel: { color: colors.muted, fontSize: 11, fontWeight: "600" },
-});
+}));
+

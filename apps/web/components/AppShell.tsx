@@ -34,6 +34,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
     setChecked(true);
   }, [router]);
 
+  // Apply the saved theme on every page (the toggle lives in Settings).
+  useEffect(() => {
+    try {
+      const theme = window.localStorage.getItem("setflow-theme");
+      document.body.classList.toggle("light", theme === "light");
+    } catch {
+      // default dark
+    }
+  }, []);
+
   if (!checked) return null;
 
   return (

@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { Exercise, SetLog, WorkoutJournal, WorkoutSession } from "@setflow/shared";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 import { getApi } from "../api";
 import { Button, Card, H1, Muted } from "../components/ui";
 
@@ -24,6 +24,7 @@ export default function SessionDetailScreen({
   const [editWeight, setEditWeight] = useState("");
   const [editReps, setEditReps] = useState("");
   const [busy, setBusy] = useState(false);
+  const styles = getStyles();
 
   const load = useCallback(async () => {
     const api = getApi();
@@ -200,7 +201,7 @@ export default function SessionDetailScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = themedStyles(() => StyleSheet.create({
   wrap: { flex: 1, padding: 20, gap: 10, backgroundColor: colors.bg },
   exercise: { color: colors.accent, fontSize: 15, fontWeight: "700" },
   logRow: {
@@ -226,4 +227,4 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
   },
-});
+}));

@@ -1,9 +1,10 @@
 // Tiny shared primitives so every screen looks consistent without a UI kit.
 
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  const styles = getStyles();
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
@@ -18,6 +19,7 @@ export function Button({
   kind?: "primary" | "quiet" | "danger";
   disabled?: boolean;
 }) {
+  const styles = getStyles();
   return (
     <Pressable
       onPress={onPress}
@@ -43,7 +45,7 @@ export function Button({
 }
 
 export function H1({ children }: { children: React.ReactNode }) {
-  return <Text style={styles.h1}>{children}</Text>;
+  return <Text style={getStyles().h1}>{children}</Text>;
 }
 
 /** One-tap pick-one row: LABEL  [option] [option] [option] */
@@ -58,6 +60,7 @@ export function ChipRow<T extends string>({
   value: T | undefined;
   onSelect: (v: T) => void;
 }) {
+  const styles = getStyles();
   return (
     <View style={styles.chipRow}>
       <Text style={styles.chipLabel}>{label}</Text>
@@ -80,10 +83,10 @@ export function ChipRow<T extends string>({
 }
 
 export function Muted({ children }: { children: React.ReactNode }) {
-  return <Text style={styles.muted}>{children}</Text>;
+  return <Text style={getStyles().muted}>{children}</Text>;
 }
 
-const styles = StyleSheet.create({
+const getStyles = themedStyles(() => StyleSheet.create({
   card: {
     backgroundColor: colors.panel,
     borderWidth: 1,
@@ -123,4 +126,4 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { color: colors.text, fontSize: 13 },
   chipTextActive: { color: colors.bg, fontWeight: "700" },
-});
+}));

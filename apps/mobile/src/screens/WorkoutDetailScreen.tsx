@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Exercise } from "@setflow/shared";
 import type { WorkoutPlanWithSteps } from "@setflow/api-client";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 import { getApi } from "../api";
 import { Button, Card, H1, Muted } from "../components/ui";
 
@@ -19,6 +19,7 @@ export default function WorkoutDetailScreen({
 }) {
   const [plan, setPlan] = useState<WorkoutPlanWithSteps | null | undefined>(undefined);
   const [exercises, setExercises] = useState<Map<string, Exercise>>(new Map());
+  const styles = getStyles();
 
   useEffect(() => {
     const api = getApi();
@@ -87,8 +88,8 @@ export default function WorkoutDetailScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = themedStyles(() => StyleSheet.create({
   wrap: { flex: 1, padding: 20, gap: 12, backgroundColor: colors.bg },
   stepTitle: { color: colors.text, fontSize: 16, fontWeight: "700" },
   cue: { color: colors.green, fontSize: 13 },
-});
+}));

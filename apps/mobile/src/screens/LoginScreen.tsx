@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 import { Button, Muted } from "../components/ui";
 
 export default function LoginScreen({ onSignIn }: { onSignIn: (email: string) => void }) {
   const [email, setEmail] = useState("");
+  const styles = getStyles();
 
   return (
     <View style={styles.wrap}>
@@ -26,7 +27,7 @@ export default function LoginScreen({ onSignIn }: { onSignIn: (email: string) =>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = themedStyles(() => StyleSheet.create({
   wrap: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -45,4 +46,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 16,
   },
-});
+}));

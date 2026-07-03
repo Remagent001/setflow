@@ -15,8 +15,9 @@ import {
   type EngineWorkout,
   type WorkoutEngine,
 } from "@setflow/workout-engine";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 import { getApi } from "../api";
+import { getSettings } from "../settings";
 import {
   endSession,
   getSession,
@@ -50,6 +51,7 @@ function WeightEditor({
   onChange: (weight: number | null) => void;
 }) {
   const [text, setText] = useState(effectiveWeight != null ? String(effectiveWeight) : "");
+  const styles = getStyles();
 
   const commit = (raw: string) => {
     setText(raw);
@@ -100,6 +102,7 @@ function VoiceLogPanel({
   const [fixing, setFixing] = useState(false);
   const [fixWeight, setFixWeight] = useState("");
   const [fixReps, setFixReps] = useState("");
+  const styles = getStyles();
 
   const confidence = snap.pendingLog?.confidence ?? 0;
   const autoSave = snap.status === "confirming_log" && confidence >= 0.85 && !fixing;
@@ -112,7 +115,7 @@ function VoiceLogPanel({
 
   const submit = () => {
     const parsed = parseVoiceLog(text);
-    const resolved = resolveVoiceLog(parsed, { ...context, unit: "lb" });
+    const resolved = resolveVoiceLog(parsed, { ...context, unit: getSettings().weightUnit });
     switch (resolved.action) {
       case "pending":
         setHint("");
@@ -246,6 +249,7 @@ function VoiceLogPanel({
 function PreJournalCard({ onPatch }: { onPatch: (p: JournalPatch) => void }) {
   const [j, setJ] = useState<JournalPatch>({});
   const [meal, setMeal] = useState("");
+  const styles = getStyles();
   const set = (p: JournalPatch) => {
     setJ((prev) => ({ ...prev, ...p }));
     onPatch(p);
@@ -274,6 +278,7 @@ function PostJournalCard({ onPatch }: { onPatch: (p: JournalPatch) => void }) {
   const [j, setJ] = useState<JournalPatch>({});
   const [bestLift, setBestLift] = useState("");
   const [notes, setNotes] = useState("");
+  const styles = getStyles();
   const set = (p: JournalPatch) => {
     setJ((prev) => ({ ...prev, ...p }));
     onPatch(p);
@@ -316,6 +321,7 @@ export default function PlayerScreen({
   const [workout, setWorkout] = useState<EngineWorkout | null>(null);
   const [session, setSession] = useState<ActiveSession | null>(() => getSession(planId));
   const [snap, setSnap] = useState<EngineSnapshot | null>(session?.engine.snapshot() ?? null);
+  const styles = getStyles();
 
   useEffect(() => {
     const api = getApi();
@@ -394,7 +400,9 @@ export default function PlayerScreen({
       break;
     case "active_set":
       actions.push({ title: "Complete set", onPress: () => engine.completeSet() });
-      actions.push({ title: "Log by voice", kind: "quiet", onPress: () => engine.startListening() });
+      if (getSettings().voiceLogging) {
+        actions.push({ title: "Log by voice", kind: "quiet", onPress: () => engine.startListening() });
+      }
       actions.push({ title: "Skip set", kind: "quiet", onPress: () => engine.skipSet() });
       break;
     case "resting":
@@ -492,7 +500,7 @@ export default function PlayerScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = themedStyles(() => StyleSheet.create({
   wrap: { flex: 1, padding: 20, gap: 14, backgroundColor: colors.bg },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   minimize: { color: colors.accent, fontSize: 15, fontWeight: "600", width: 60 },
@@ -525,4 +533,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 15,
   },
-});
+}));
