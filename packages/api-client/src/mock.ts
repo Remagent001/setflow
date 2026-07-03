@@ -293,18 +293,44 @@ export function createMockApiClient(options?: { storage?: MockStorage }): ApiCli
       return j;
     },
 
-    // --- reports (stub until Segment 16) -----------------------------------------
-    async getDashboardSummary(): Promise<DashboardSummary> {
-      const completed = store.sessions.filter((s) => s.status === "completed");
+    // --- reports (Segment 16) ------------------------------------------------------
+    async getDashboardSummary(userId): Promise<DashboardSummary> {
+      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const mine = store.sessions.filter(
+        (s) => s.userId === userId && s.status === "completed"
+      );
+      const thisWeek = mine.filter((s) => new Date(s.createdAt).getTime() >= weekAgo);
+      const weekSessionIds = new Set(thisWeek.map((s) => s.id));
+      const weekLogs = store.setLogs.filter(
+        (l) => weekSessionIds.has(l.sessionId) && l.status !== "skipped"
+      );
+
+      const durations = thisWeek
+        .map((s) => s.durationSeconds)
+        .filter((d): d is number => d != null);
+
+      // Streak: consecutive calendar days with a completed workout, counting
+      // back from today (or yesterday, so a morning check doesn't zero it).
+      const days = new Set(mine.map((s) => new Date(s.createdAt).toDateString()));
+      let streak = 0;
+      const cursor = new Date();
+      if (!days.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1);
+      while (days.has(cursor.toDateString())) {
+        streak++;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+
       return {
-        workoutsThisWeek: completed.length,
-        totalSets: store.setLogs.length,
-        totalVolume: store.setLogs.reduce(
+        workoutsThisWeek: thisWeek.length,
+        totalSets: weekLogs.length,
+        totalVolume: weekLogs.reduce(
           (sum, l) => sum + (l.actualWeight ?? 0) * (l.actualReps ?? 0),
           0
         ),
-        averageDurationMinutes: 0,
-        currentStreakDays: 0,
+        averageDurationMinutes: durations.length
+          ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length / 60)
+          : 0,
+        currentStreakDays: streak,
       };
     },
   };

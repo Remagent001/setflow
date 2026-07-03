@@ -1,15 +1,15 @@
 # Segment Status
 
 ## Current Segment
-Segment: 15
-Name: Light Journal
+Segment: 17
+Name: Offline Cache and Sync
 Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 14
-Commit: segment-14-set-logs-history
+Segment: 16
+Commit: segment-16-reports-dashboard
 Date: 2026-07-03
-Notes: Segments 12+13+14 all landed. 12: voice parser (parseVoiceLog/resolveVoiceLog) covering every build-doc phrase incl. spoken numbers + gym shorthand, confidence-scored, 22 tests. 13: mobile voice UX - Log by voice -> listening card -> speak-or-type transcript -> confirmation card with 3s auto-save at high confidence / Fix / Cancel; skip/difficulty/note intents act directly (engine.annotateLastResult); failed/difficulty/note flow into SetLogs. 14: listSessions added to the api contract (mock + supabase); persistence moved into the mobile session store (session row at start, each set saved as logged, completion + weight rollforward even if the player closes); real History (sessions list) + SessionDetail (grouped logs, inline weight x reps editing) on mobile; web History page lists sessions + logs. Metro resolver now pins react/react-dom/react-native to the mobile app's copies (root had a second React for Next -> "Invalid hook call" on expo web). Live-verified end to end: spoke "eighty for six, that was brutal" -> auto-saved -> History -> edited to 85 x 8. 39 package tests pass.
+Notes: 12-16 all landed and pushed. 12: voice parser (every build-doc phrase, spoken numbers, gym shorthand, confidence-scored). 13: mobile voice UX (listening card -> confirm with 3s auto-save / Fix / Cancel; difficulty/notes annotate sets). 14: incremental session persistence in the session store + editable History on mobile + web History. 15: pre/post-workout journal chips saved per session, shown in history detail. 16: real getDashboardSummary (weekly volume/sets/workouts, avg duration, day streak) + web Reports page (summary cards, per-exercise last/best, muscle-group volume bars, history table, causality-safe journal placeholder). Player also gained Add set (replaced Back, per Keith) and adjustable weights that roll forward. Metro pins react* to the mobile app's copies (dup-React fix). 41 package tests pass.
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
@@ -27,8 +27,8 @@ Notes: Segments 12+13+14 all landed. 12: voice parser (parseVoiceLog/resolveVoic
 - [x] Segment 12 — Voice Parser
 - [x] Segment 13 — Voice Logging UX
 - [x] Segment 14 — Set Logs and History
-- [ ] Segment 15 — Light Journal
-- [ ] Segment 16 — Reports Dashboard
+- [x] Segment 15 — Light Journal
+- [x] Segment 16 — Reports Dashboard
 - [ ] Segment 17 — Offline Cache and Sync
 - [ ] Segment 18 — Timer Presets
 - [ ] Segment 19 — Meta Integration Spike
@@ -39,4 +39,4 @@ Notes: Segments 12+13+14 all landed. 12: voice parser (parseVoiceLog/resolveVoic
 None.
 
 ## Next Step
-Start Segment 15 — Light Journal (pre/post-workout energy/sleep/soreness/mood forms linked to the session).
+Start Segment 17 — Offline Cache and Sync (persist mobile mock data across app restarts; queue writes for the real backend).
