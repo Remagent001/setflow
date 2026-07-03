@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=600, initial-scale=1, user-scalable=no">
+<title>SetFlow</title>
+<style>
+  /* Meta Ray-Ban Display rules: 600x600, black = transparent, bright text,
+     no scrolling. Neural Band: swipes = arrow keys, pinch = Enter. */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #000; overflow: hidden; }
+  #stage {
+    width: 600px; height: 600px; margin: 0 auto; background: #000;
+    color: #eaffff; font-family: system-ui, -apple-system, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; gap: 22px; padding: 40px;
+    position: relative;
+  }
+  .dim  { color: #9adfff; opacity: .85; font-size: 26px; }
+  .mid  { font-size: 34px; font-weight: 600; }
+  .big  { font-size: 58px; font-weight: 800; line-height: 1.08; }
+  .huge { font-size: 96px; font-weight: 800; }
+  .green { color: #7dffc8; }
+  #hint {
+    position: absolute; bottom: 26px; left: 0; right: 0;
+    color: #9adfff; opacity: .6; font-size: 20px;
+  }
+  #paused {
+    position: absolute; top: 26px; left: 0; right: 0;
+    color: #ffd479; font-size: 22px; font-weight: 700; display: none;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="paused">PAUSED — pinch to resume</div>
+  <div id="card"></div>
+  <div id="hint"></div>
+</div>
+<script>/*__APP__*/</script>
+</body>
+</html>
