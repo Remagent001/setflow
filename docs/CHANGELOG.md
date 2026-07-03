@@ -63,3 +63,24 @@ Validation:
 Notes:
 - Segment acceptance said "migrated locally"; we validated against the real
   cloud project instead, which is strictly stronger for this stack.
+
+## Segment 03 — API Client and Backend Contracts
+Date: 2026-07-02
+Commit: segment-03-api-client-contracts
+Summary:
+- ApiClient interface: exercises, media, plans+steps, sessions, set logs,
+  journal, dashboard-summary stub (full reports in Segment 16)
+- createMockApiClient: in-memory, pre-seeded with 3 exercises + a 3-step
+  sample workout; powers dev/preview/tests with zero backend
+- createSupabaseApiClient: real implementation over @supabase/supabase-js
+  with shared snake_case<->camelCase row mapping (casing.ts)
+- smoke.ts: runnable acceptance test (node type-stripping)
+
+Validation:
+- typecheck: pass  |  lint: pass  |  next build: pass
+- smoke (mock mode): PASS — workout fetched, session created, set log saved,
+  session completed, dashboard volume math verified (750 lb)
+
+Notes:
+- Supabase impl compiles but is exercised against the live DB from Segment 4+
+  (auth is needed first for RLS-scoped writes).

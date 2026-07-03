@@ -1,21 +1,21 @@
 # Segment Status
 
 ## Current Segment
-Segment: 03
-Name: API Client and Backend Contracts
+Segment: 04
+Name: Web Auth and App Shell
 Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 02
-Commit: segment-02-database-schema
+Segment: 03
+Commit: segment-03-api-client-contracts
 Date: 2026-07-02
-Notes: Schema + RLS + seed applied to live Supabase project (ref dbqcyxdyilqkhvxntwws); 9 tables verified, 10 seed exercises. Keys in local .env (gitignored).
+Notes: Typed ApiClient interface + mock impl (smoke-tested end to end) + Supabase impl (generic row mapping). Reports stubbed until Segment 16.
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
 - [x] Segment 01 — Shared Domain Types
 - [x] Segment 02 — Database Schema
-- [ ] Segment 03 — API Client
+- [x] Segment 03 — API Client
 - [ ] Segment 04 — Web Auth Shell
 - [ ] Segment 05 — Exercise Library
 - [ ] Segment 06 — Exercise Media
@@ -39,4 +39,4 @@ Notes: Schema + RLS + seed applied to live Supabase project (ref dbqcyxdyilqkhvx
 None.
 
 ## Next Step
-Start Segment 03 — API Client and Backend Contracts (packages/api-client).
+Start Segment 04 — Web Auth and App Shell (apps/web).
