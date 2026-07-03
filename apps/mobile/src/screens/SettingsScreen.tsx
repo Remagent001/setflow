@@ -1,6 +1,25 @@
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme";
+import { getSyncStatus, subscribeSyncStatus } from "../api";
 import { Button, Card, H1, Muted } from "../components/ui";
+
+/** Live "is my data safe" line (Segment 17 acceptance: user sees sync status). */
+function SyncStatusLine() {
+  const [, force] = useState(0);
+  useEffect(() => subscribeSyncStatus(() => force((n) => n + 1)), []);
+  const { pendingWrites, lastSavedAt } = getSyncStatus();
+  return (
+    <Muted>
+      {pendingWrites > 0
+        ? "Saving..."
+        : lastSavedAt
+          ? `All changes saved on this phone (${new Date(lastSavedAt).toLocaleTimeString()}).`
+          : "All changes saved on this phone."}
+      {" "}Cloud sync arrives with accounts.
+    </Muted>
+  );
+}
 
 export default function SettingsScreen({
   email,
@@ -15,6 +34,10 @@ export default function SettingsScreen({
       <Card style={{ gap: 6 }}>
         <Muted>SIGNED IN AS</Muted>
         <Text style={styles.email}>{email}</Text>
+      </Card>
+      <Card style={{ gap: 6 }}>
+        <Muted>YOUR DATA</Muted>
+        <SyncStatusLine />
       </Card>
       <Card style={{ gap: 6 }}>
         <Muted>COMING LATER</Muted>

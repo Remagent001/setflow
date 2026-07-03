@@ -2,10 +2,11 @@
 // navigator (three tabs + two pushed screens). A navigation library can
 // replace this later without touching the screens.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { colors } from "./src/theme";
+import { initApi } from "./src/api";
 import LoginScreen from "./src/screens/LoginScreen";
 import TodayScreen from "./src/screens/TodayScreen";
 import WorkoutDetailScreen from "./src/screens/WorkoutDetailScreen";
@@ -28,10 +29,27 @@ const TABS: Array<{ key: Tab; label: string; icon: string }> = [
 ];
 
 export default function App() {
+  const [ready, setReady] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("today");
   const [pushed, setPushed] = useState<Pushed>(null);
   const [historyRefresh, setHistoryRefresh] = useState(0);
+
+  // Hydrate the offline store before any screen touches the api (Segment 17).
+  useEffect(() => {
+    initApi().then(() => setReady(true));
+  }, []);
+
+  if (!ready) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar style="light" />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ color: colors.muted }}>Loading your data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!email) {
     return (
