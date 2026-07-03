@@ -1,6 +1,8 @@
 // In-memory ApiClient - powers dev/preview/tests with zero backend.
 // Pre-seeded with a small exercise library and one sample workout so the
-// player has something to run immediately.
+// player has something to run immediately. Pass a storage adapter to make
+// the store survive reloads (web uses localStorage; mobile will use
+// AsyncStorage in Segment 17).
 
 import type {
   Exercise,
@@ -23,34 +25,73 @@ import type {
   WorkoutPlanWithSteps,
 } from "./types";
 
-let counter = 0;
-const id = () => `mock-${++counter}`;
+export type MockStore = {
+  counter: number;
+  exercises: Exercise[];
+  media: ExerciseMedia[];
+  plans: WorkoutPlan[];
+  steps: WorkoutStep[];
+  sessions: WorkoutSession[];
+  setLogs: SetLog[];
+  journals: WorkoutJournal[];
+};
+
+export type MockStorage = {
+  load(): MockStore | null;
+  save(store: MockStore): void;
+};
+
 const now = () => new Date().toISOString();
 
-export function createMockApiClient(): ApiClient {
-  const exercises: Exercise[] = [];
-  const media: ExerciseMedia[] = [];
-  const plans: WorkoutPlan[] = [];
-  const steps: WorkoutStep[] = [];
-  const sessions: WorkoutSession[] = [];
-  const setLogs: SetLog[] = [];
-  const journals: WorkoutJournal[] = [];
+function seedStore(): MockStore {
+  const store: MockStore = {
+    counter: 0,
+    exercises: [],
+    media: [],
+    plans: [],
+    steps: [],
+    sessions: [],
+    setLogs: [],
+    journals: [],
+  };
+  const id = () => `mock-${++store.counter}`;
 
-  // --- seed ---------------------------------------------------------------
-  const seedExercise = (name: string, muscle: string): Exercise => {
+  const seedExercise = (
+    name: string,
+    muscle: string,
+    cues: string[],
+    mistakes: string[]
+  ): Exercise => {
     const e: Exercise = {
       id: id(),
       name,
       primaryMuscleGroup: muscle,
+      cues,
+      commonMistakes: mistakes,
       createdAt: now(),
       updatedAt: now(),
     };
-    exercises.push(e);
+    store.exercises.push(e);
     return e;
   };
-  const bench = seedExercise("Incline Dumbbell Press", "Chest");
-  const row = seedExercise("Bent-Over Barbell Row", "Back");
-  const press = seedExercise("Overhead Press", "Shoulders");
+  const bench = seedExercise(
+    "Incline Dumbbell Press",
+    "Chest",
+    ["Elbows 45 degrees", "Press up and slightly back"],
+    ["Setting the incline too steep"]
+  );
+  const row = seedExercise(
+    "Bent-Over Barbell Row",
+    "Back",
+    ["Flat back", "Pull to the lower ribs"],
+    ["Using momentum"]
+  );
+  const press = seedExercise(
+    "Overhead Press",
+    "Shoulders",
+    ["Squeeze glutes", "Bar path close to the face"],
+    ["Arching the lower back"]
+  );
 
   const samplePlan: WorkoutPlan = {
     id: id(),
@@ -60,9 +101,9 @@ export function createMockApiClient(): ApiClient {
     createdAt: now(),
     updatedAt: now(),
   };
-  plans.push(samplePlan);
+  store.plans.push(samplePlan);
   [bench, row, press].forEach((e, i) => {
-    steps.push({
+    store.steps.push({
       id: id(),
       workoutPlanId: samplePlan.id,
       exerciseId: e.id,
@@ -73,6 +114,16 @@ export function createMockApiClient(): ApiClient {
       restSeconds: 90,
     });
   });
+  return store;
+}
+
+export function createMockApiClient(options?: { storage?: MockStorage }): ApiClient {
+  const storage = options?.storage;
+  const store: MockStore = storage?.load() ?? seedStore();
+
+  const id = () => `mock-${++store.counter}`;
+  const persist = () => storage?.save(store);
+  persist(); // write the seed on first run so reloads see it
 
   const mustFind = <T extends { id: string }>(arr: T[], itemId: string, label: string): T => {
     const item = arr.find((x) => x.id === itemId);
@@ -83,73 +134,83 @@ export function createMockApiClient(): ApiClient {
   return {
     // --- exercises ---------------------------------------------------------
     async listExercises() {
-      return [...exercises];
+      return [...store.exercises];
     },
     async getExercise(exerciseId) {
-      return exercises.find((e) => e.id === exerciseId) ?? null;
+      return store.exercises.find((e) => e.id === exerciseId) ?? null;
     },
     async createExercise(input: NewExercise) {
       const e: Exercise = { ...input, id: id(), createdAt: now(), updatedAt: now() };
-      exercises.push(e);
+      store.exercises.push(e);
+      persist();
       return e;
     },
     async updateExercise(exerciseId, patch) {
-      const e = mustFind(exercises, exerciseId, "exercise");
+      const e = mustFind(store.exercises, exerciseId, "exercise");
       Object.assign(e, patch, { updatedAt: now() });
+      persist();
       return e;
     },
     async deleteExercise(exerciseId) {
-      const i = exercises.findIndex((e) => e.id === exerciseId);
-      if (i >= 0) exercises.splice(i, 1);
+      const i = store.exercises.findIndex((e) => e.id === exerciseId);
+      if (i >= 0) store.exercises.splice(i, 1);
+      persist();
     },
     async addExerciseMedia(input: NewExerciseMedia) {
       const m: ExerciseMedia = { ...input, id: id(), createdAt: now() };
-      media.push(m);
+      store.media.push(m);
+      persist();
       return m;
     },
     async listExerciseMedia(exerciseId) {
-      return media.filter((m) => m.exerciseId === exerciseId);
+      return store.media.filter((m) => m.exerciseId === exerciseId);
     },
 
     // --- plans ---------------------------------------------------------------
     async listWorkoutPlans() {
-      return [...plans];
+      return [...store.plans];
     },
     async getWorkoutPlan(planId): Promise<WorkoutPlanWithSteps | null> {
-      const plan = plans.find((p) => p.id === planId);
+      const plan = store.plans.find((p) => p.id === planId);
       if (!plan) return null;
-      const planSteps = steps
+      const planSteps = store.steps
         .filter((s) => s.workoutPlanId === planId)
         .sort((a, b) => a.orderIndex - b.orderIndex);
       return { ...plan, steps: planSteps };
     },
     async createWorkoutPlan(input: NewWorkoutPlan) {
       const p: WorkoutPlan = { ...input, id: id(), createdAt: now(), updatedAt: now() };
-      plans.push(p);
+      store.plans.push(p);
+      persist();
       return p;
     },
     async updateWorkoutPlan(planId, patch) {
-      const p = mustFind(plans, planId, "workout plan");
+      const p = mustFind(store.plans, planId, "workout plan");
       Object.assign(p, patch, { updatedAt: now() });
+      persist();
       return p;
     },
     async deleteWorkoutPlan(planId) {
-      const i = plans.findIndex((p) => p.id === planId);
-      if (i >= 0) plans.splice(i, 1);
+      const i = store.plans.findIndex((p) => p.id === planId);
+      if (i >= 0) store.plans.splice(i, 1);
+      persist();
     },
     async addWorkoutStep(input: NewWorkoutStep) {
       const s: WorkoutStep = { ...input, id: id() };
-      steps.push(s);
+      store.steps.push(s);
+      persist();
       return s;
     },
     async updateWorkoutStep(stepId, patch) {
-      const s = mustFind(steps, stepId, "workout step");
+      const s = mustFind(store.steps, stepId, "workout step");
       Object.assign(s, patch);
+      persist();
       return s;
     },
     async deleteWorkoutStep(stepId) {
-      const i = steps.findIndex((s) => s.id === stepId);
-      if (i >= 0) steps.splice(i, 1);
+      const i = store.steps.findIndex((s) => s.id === stepId);
+      if (i >= 0) store.steps.splice(i, 1);
+      persist();
     },
 
     // --- sessions ------------------------------------------------------------
@@ -163,65 +224,72 @@ export function createMockApiClient(): ApiClient {
         createdAt: now(),
         updatedAt: now(),
       };
-      sessions.push(s);
+      store.sessions.push(s);
+      persist();
       return s;
     },
     async getSession(sessionId) {
-      return sessions.find((s) => s.id === sessionId) ?? null;
+      return store.sessions.find((s) => s.id === sessionId) ?? null;
     },
     async completeSession(sessionId, durationSeconds) {
-      const s = mustFind(sessions, sessionId, "session");
+      const s = mustFind(store.sessions, sessionId, "session");
       Object.assign(s, {
         status: "completed",
         completedAt: now(),
         durationSeconds,
         updatedAt: now(),
       });
+      persist();
       return s;
     },
     async abandonSession(sessionId) {
-      const s = mustFind(sessions, sessionId, "session");
+      const s = mustFind(store.sessions, sessionId, "session");
       Object.assign(s, { status: "abandoned", updatedAt: now() });
+      persist();
       return s;
     },
 
     // --- set logs --------------------------------------------------------------
     async createSetLog(input: NewSetLog) {
       const l: SetLog = { ...input, id: id(), createdAt: now() };
-      setLogs.push(l);
+      store.setLogs.push(l);
+      persist();
       return l;
     },
     async updateSetLog(logId, patch) {
-      const l = mustFind(setLogs, logId, "set log");
+      const l = mustFind(store.setLogs, logId, "set log");
       Object.assign(l, patch);
+      persist();
       return l;
     },
     async listSetLogs(sessionId) {
-      return setLogs.filter((l) => l.sessionId === sessionId);
+      return store.setLogs.filter((l) => l.sessionId === sessionId);
     },
 
     // --- journal ---------------------------------------------------------------
     async getJournal(sessionId) {
-      return journals.find((j) => j.sessionId === sessionId) ?? null;
+      return store.journals.find((j) => j.sessionId === sessionId) ?? null;
     },
     async saveJournal(input: NewWorkoutJournal) {
-      const existing = journals.find((j) => j.sessionId === input.sessionId);
+      const existing = store.journals.find((j) => j.sessionId === input.sessionId);
       if (existing) {
         Object.assign(existing, input, { updatedAt: now() });
+        persist();
         return existing;
       }
       const j: WorkoutJournal = { ...input, id: id(), createdAt: now(), updatedAt: now() };
-      journals.push(j);
+      store.journals.push(j);
+      persist();
       return j;
     },
 
     // --- reports (stub until Segment 16) -----------------------------------------
     async getDashboardSummary(): Promise<DashboardSummary> {
-      const completed = sessions.filter((s) => s.status === "completed");
+      const completed = store.sessions.filter((s) => s.status === "completed");
       return {
         workoutsThisWeek: completed.length,
-        totalSets: setLogs.length,
-        totalVolume: setLogs.reduce(
+        totalSets: store.setLogs.length,
+        totalVolume: store.setLogs.reduce(
           (sum, l) => sum + (l.actualWeight ?? 0) * (l.actualReps ?? 0),
           0
         ),

@@ -1,15 +1,15 @@
 # Segment Status
 
 ## Current Segment
-Segment: 05
-Name: Exercise Library
+Segment: 06
+Name: Demo Video Uploads
 Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 04
-Commit: segment-04-web-auth-shell
+Segment: 05
+Commit: segment-05-exercise-library
 Date: 2026-07-02
-Notes: Mock-auth login, protected AppShell (sidebar+topbar), 6 placeholder pages. All build statically.
+Notes: Exercise CRUD (list/create/view/edit/delete) with cues, mistakes, muscle groups, equipment; persists via localStorage-backed mock store. Media placeholder in place for Segment 06.
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
@@ -17,7 +17,7 @@ Notes: Mock-auth login, protected AppShell (sidebar+topbar), 6 placeholder pages
 - [x] Segment 02 — Database Schema
 - [x] Segment 03 — API Client
 - [x] Segment 04 — Web Auth Shell
-- [ ] Segment 05 — Exercise Library
+- [x] Segment 05 — Exercise Library
 - [ ] Segment 06 — Exercise Media
 - [ ] Segment 07 — Workout Builder
 - [ ] Segment 08 — Workout Engine
@@ -39,4 +39,4 @@ Notes: Mock-auth login, protected AppShell (sidebar+topbar), 6 placeholder pages
 None.
 
 ## Next Step
-Start Segment 05 — Exercise Library (apps/web + api-client).
+Start Segment 06 — Demo Video Uploads.

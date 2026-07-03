@@ -102,3 +102,24 @@ Validation:
 Notes:
 - Tailwind deferred (plain CSS is enough for the shell); revisit when real
   UI density arrives in Segment 5+.
+
+## Segment 05 — Exercise Library
+Date: 2026-07-02
+Commit: segment-05-exercise-library
+Summary:
+- Exercise pages: list (card grid), create, details (cues / mistakes /
+  instructions / equipment), edit, delete (with confirm)
+- ExerciseForm shared by create+edit; list fields entered as lines/commas
+- Mock ApiClient gained a pluggable storage adapter; web persists the store
+  to localStorage so created exercises survive reloads (real DB swap stays
+  contained to apps/web/lib/api.ts once Supabase Auth lands)
+- Demo-video placeholder card per the plan (uploads = Segment 06)
+
+Validation:
+- typecheck: pass  |  lint: pass  |  next build: pass (12 routes)
+- api-client smoke: PASS (after mock-store refactor)
+- /exercises serves 200 on the dev server
+
+Notes:
+- Persistence is per-browser (localStorage) until Supabase Auth; acceptance
+  criterion "exercise data persists" holds across reloads.

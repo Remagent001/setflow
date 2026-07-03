@@ -10,7 +10,7 @@ export type {
   NewWorkoutPlan,
   NewWorkoutStep,
 } from "./types";
-export { createMockApiClient } from "./mock";
+export { createMockApiClient, type MockStore, type MockStorage } from "./mock";
 export { createSupabaseApiClient, type SupabaseApiConfig } from "./supabase";
 
 export const PACKAGE_NAME = "@setflow/api-client";
