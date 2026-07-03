@@ -4,7 +4,15 @@
 // Every state derives exactly one GlassesCard, so any surface (mock preview,
 // mobile player, real glasses) renders from the same snapshot.
 
-import type { Exercise, GlassesCard, GlassesMedia, LogUnit, WorkoutPlan, WorkoutStep } from "@setflow/shared";
+import type {
+  Exercise,
+  GlassesCard,
+  GlassesMedia,
+  LogUnit,
+  SetDifficulty,
+  WorkoutPlan,
+  WorkoutStep,
+} from "@setflow/shared";
 
 export type EngineStatus =
   | "idle"
@@ -36,6 +44,10 @@ export type PendingLog = {
   reps?: number;
   durationSeconds?: number;
   unit: LogUnit;
+  /** "failed at 8" logs arrive as failed; default is completed. */
+  status?: "completed" | "failed";
+  difficulty?: SetDifficulty;
+  note?: string;
   transcript?: string;
   confidence?: number;
 };
@@ -51,7 +63,9 @@ export type EngineSetResult = {
   actualReps?: number;
   actualDurationSeconds?: number;
   unit: LogUnit;
-  status: "completed" | "skipped";
+  status: "completed" | "failed" | "skipped";
+  difficulty?: SetDifficulty;
+  note?: string;
   loggedBy: "manual" | "glasses_voice" | "mobile_voice" | "gesture";
   transcript?: string;
   confidence?: number;
@@ -182,6 +196,11 @@ export class WorkoutEngine {
   /** Step back: active set/demo → its preview; preview → previous exercise's preview. */
   previous(): void {
     switch (this.status) {
+      case "confirming_log":
+        // Bail out of a pending voice log back to the set.
+        this.status = "active_set";
+        this.pendingLog = null;
+        break;
       case "demo":
       case "active_set":
       case "listening_for_log":
@@ -273,11 +292,25 @@ export class WorkoutEngine {
       durationSeconds: p.durationSeconds,
       unit: p.unit,
       loggedBy: source,
-      status: "completed",
+      status: p.status ?? "completed",
+      difficulty: p.difficulty,
+      note: p.note,
       transcript: p.transcript,
       confidence: p.confidence,
     });
     this.advanceAfterSet();
+  }
+
+  /** Attach "that was brutal" / "add note ..." to the most recent logged set. */
+  annotateLastResult(patch: { difficulty?: SetDifficulty; note?: string }): boolean {
+    const last = this.results[this.results.length - 1];
+    if (!last) return false;
+    if (patch.difficulty !== undefined) last.difficulty = patch.difficulty;
+    if (patch.note !== undefined) {
+      last.note = last.note ? `${last.note}; ${patch.note}` : patch.note;
+    }
+    this.notify();
+    return true;
   }
 
   /** Record the current set as skipped and move on. */
@@ -365,10 +398,15 @@ export class WorkoutEngine {
       unit: LogUnit;
       loggedBy: EngineSetResult["loggedBy"];
       status: EngineSetResult["status"];
+      difficulty?: SetDifficulty;
+      note?: string;
       transcript?: string;
       confidence?: number;
     }
   ): EngineSetResult {
+    // Failed sets keep their actuals ("failed at 8" = did 8 reps); only
+    // skipped sets record nothing.
+    const attempted = partial.status !== "skipped";
     return {
       workoutStepId: step.step.id,
       exerciseId: step.exercise.id,
@@ -376,11 +414,13 @@ export class WorkoutEngine {
       targetWeight: step.step.targetWeight,
       targetReps: step.step.targetReps,
       targetDurationSeconds: step.step.targetDurationSeconds,
-      actualWeight: partial.status === "completed" ? partial.weight : undefined,
-      actualReps: partial.status === "completed" ? partial.reps : undefined,
-      actualDurationSeconds: partial.status === "completed" ? partial.durationSeconds : undefined,
+      actualWeight: attempted ? partial.weight : undefined,
+      actualReps: attempted ? partial.reps : undefined,
+      actualDurationSeconds: attempted ? partial.durationSeconds : undefined,
       unit: partial.unit,
       status: partial.status,
+      difficulty: partial.difficulty,
+      note: partial.note,
       loggedBy: partial.loggedBy,
       transcript: partial.transcript,
       confidence: partial.confidence,

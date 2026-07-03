@@ -8,7 +8,13 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import type { Exercise } from "@setflow/shared";
-import type { EngineSnapshot, EngineWorkout } from "@setflow/workout-engine";
+import {
+  parseVoiceLog,
+  resolveVoiceLog,
+  type EngineSnapshot,
+  type EngineWorkout,
+  type WorkoutEngine,
+} from "@setflow/workout-engine";
 import { colors } from "../theme";
 import { getApi, MOCK_USER_ID } from "../api";
 import { endSession, getSession, startSession, type ActiveSession } from "../session";
@@ -64,6 +70,168 @@ function WeightEditor({
       />
       <Text style={styles.weightUnit}>lb</Text>
       <Button title="+5" kind="quiet" onPress={() => nudge(5)} />
+    </Card>
+  );
+}
+
+/**
+ * Voice logging panel (Segment 13). Speak-or-type a phrase; the parser turns
+ * it into a set log. High-confidence logs auto-save after 3 seconds unless
+ * the user taps Fix (build doc 7.3). Real speech-to-text arrives with the
+ * glasses integration - typing (or the keyboard's dictation mic) stands in.
+ */
+function VoiceLogPanel({
+  engine,
+  snap,
+  context,
+}: {
+  engine: WorkoutEngine;
+  snap: EngineSnapshot;
+  context: { lastWeight?: number; lastReps?: number; targetWeight?: number; targetReps?: number };
+}) {
+  const [text, setText] = useState("");
+  const [hint, setHint] = useState("");
+  const [fixing, setFixing] = useState(false);
+  const [fixWeight, setFixWeight] = useState("");
+  const [fixReps, setFixReps] = useState("");
+
+  const confidence = snap.pendingLog?.confidence ?? 0;
+  const autoSave = snap.status === "confirming_log" && confidence >= 0.85 && !fixing;
+
+  useEffect(() => {
+    if (!autoSave) return;
+    const t = setTimeout(() => engine.confirmLog("mobile_voice"), 3000);
+    return () => clearTimeout(t);
+  }, [autoSave, engine, snap.pendingLog]);
+
+  const submit = () => {
+    const parsed = parseVoiceLog(text);
+    const resolved = resolveVoiceLog(parsed, { ...context, unit: "lb" });
+    switch (resolved.action) {
+      case "pending":
+        setHint("");
+        setText("");
+        engine.voiceLog(resolved.pending);
+        break;
+      case "skip":
+        engine.skipSet();
+        break;
+      case "difficulty":
+        setHint(engine.annotateLastResult({ difficulty: resolved.difficulty })
+          ? `Marked last set: ${resolved.difficulty}`
+          : "No set logged yet to mark.");
+        setText("");
+        break;
+      case "note":
+        setHint(engine.annotateLastResult({ note: resolved.note })
+          ? "Note added to last set."
+          : "No set logged yet for a note.");
+        setText("");
+        break;
+      default:
+        setHint('Didn\'t catch that - try "75 for 10" or "same as last set".');
+    }
+  };
+
+  if (snap.status === "listening_for_log") {
+    return (
+      <Card style={{ gap: 10 }}>
+        <Text style={styles.status}>Say (or type) your set</Text>
+        <TextInput
+          style={styles.voiceInput}
+          value={text}
+          onChangeText={setText}
+          placeholder='e.g. "75 for 10", "same as last set", "skip"'
+          placeholderTextColor={colors.muted}
+          autoFocus
+          onSubmitEditing={submit}
+        />
+        {hint ? <Muted>{hint}</Muted> : null}
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Button title="Log it" onPress={submit} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button title="Cancel" kind="quiet" onPress={() => engine.stopListening()} />
+          </View>
+        </View>
+      </Card>
+    );
+  }
+
+  // confirming_log
+  const pending = snap.pendingLog;
+  return (
+    <Card style={{ gap: 10 }}>
+      {fixing ? (
+        <>
+          <Text style={styles.status}>Fix the log</Text>
+          <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+            <TextInput
+              style={[styles.voiceInput, { flex: 1 }]}
+              value={fixWeight}
+              onChangeText={setFixWeight}
+              keyboardType="numeric"
+              placeholder="weight"
+              placeholderTextColor={colors.muted}
+            />
+            <Text style={{ color: colors.muted }}>lb ×</Text>
+            <TextInput
+              style={[styles.voiceInput, { flex: 1 }]}
+              value={fixReps}
+              onChangeText={setFixReps}
+              keyboardType="numeric"
+              placeholder="reps"
+              placeholderTextColor={colors.muted}
+            />
+          </View>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Button
+                title="Save set"
+                onPress={() => {
+                  const w = Number(fixWeight);
+                  const r = Number(fixReps);
+                  engine.correctLog({
+                    weight: Number.isFinite(w) && fixWeight.trim() !== "" ? w : undefined,
+                    reps: Number.isFinite(r) && fixReps.trim() !== "" ? r : undefined,
+                  });
+                  engine.confirmLog("mobile_voice");
+                  setFixing(false);
+                }}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button title="Cancel" kind="quiet" onPress={() => setFixing(false)} />
+            </View>
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={styles.status}>
+            {autoSave ? "Auto-saving in 3s..." : "Confirm this set?"}
+          </Text>
+          <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+            <View style={{ flexGrow: 1 }}>
+              <Button title="Confirm" onPress={() => engine.confirmLog("mobile_voice")} />
+            </View>
+            <View style={{ flexGrow: 1 }}>
+              <Button
+                title="Fix"
+                kind="quiet"
+                onPress={() => {
+                  setFixWeight(pending?.weight != null ? String(pending.weight) : "");
+                  setFixReps(pending?.reps != null ? String(pending.reps) : "");
+                  setFixing(true);
+                }}
+              />
+            </View>
+            <View style={{ flexGrow: 1 }}>
+              <Button title="Cancel" kind="quiet" onPress={() => engine.previous()} />
+            </View>
+          </View>
+        </>
+      )}
     </Card>
   );
 }
@@ -147,7 +315,11 @@ export default function PlayerScreen({
           actualDurationSeconds: r.actualDurationSeconds,
           unit: r.unit,
           status: r.status,
+          difficulty: r.difficulty,
+          note: r.note,
           loggedBy: r.loggedBy,
+          transcript: r.transcript,
+          confidence: r.confidence,
         });
       }
       await api.completeSession(dbSession.id, durationSeconds);
@@ -202,6 +374,7 @@ export default function PlayerScreen({
       break;
     case "active_set":
       actions.push({ title: "Complete set", onPress: () => engine.completeSet() });
+      actions.push({ title: "Log by voice", kind: "quiet", onPress: () => engine.startListening() });
       actions.push({ title: "Skip set", kind: "quiet", onPress: () => engine.skipSet() });
       break;
     case "resting":
@@ -264,6 +437,25 @@ export default function PlayerScreen({
         />
       )}
 
+      {(snap.status === "listening_for_log" || snap.status === "confirming_log") && step && (
+        <VoiceLogPanel
+          engine={engine}
+          snap={snap}
+          context={{
+            lastWeight: [...snap.results]
+              .reverse()
+              .find((r) => r.workoutStepId === step.step.id && r.status !== "skipped")
+              ?.actualWeight,
+            lastReps: [...snap.results]
+              .reverse()
+              .find((r) => r.workoutStepId === step.step.id && r.status !== "skipped")
+              ?.actualReps,
+            targetWeight: effectiveWeight,
+            targetReps: step.step.targetReps,
+          }}
+        />
+      )}
+
       <View style={styles.actions}>
         {actions.map((a) => (
           <View key={a.title} style={{ flexGrow: 1, flexBasis: "45%" }}>
@@ -298,4 +490,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   weightUnit: { color: colors.muted, fontSize: 13 },
+  voiceInput: {
+    backgroundColor: colors.panel2,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 15,
+  },
 });

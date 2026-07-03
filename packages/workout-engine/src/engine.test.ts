@@ -327,6 +327,57 @@ test("weight override drives the card, the phrase, and the logged actuals - plan
   assert.equal((engine.snapshot().card as { targetWeight?: number }).targetWeight, 75);
 });
 
+test("voice log with failed status, difficulty, and note flows into the result", () => {
+  const engine = createWorkoutEngine(sampleWorkout());
+  engine.start();
+  engine.next();
+  engine.startSet();
+  engine.voiceLog({
+    weight: 80,
+    reps: 8,
+    unit: "lb",
+    status: "failed",
+    difficulty: "brutal",
+    note: "grip gave out",
+    transcript: "failed at 8",
+  });
+  engine.confirmLog("mobile_voice");
+  const r = engine.snapshot().results[0];
+  assert.equal(r?.status, "failed");
+  assert.equal(r?.actualReps, 8); // failed sets keep their actuals
+  assert.equal(r?.difficulty, "brutal");
+  assert.equal(r?.note, "grip gave out");
+  assert.equal(r?.loggedBy, "mobile_voice");
+});
+
+test("annotateLastResult attaches difficulty and appends notes to the last set", () => {
+  const engine = createWorkoutEngine(sampleWorkout());
+  engine.start();
+  engine.next();
+  assert.equal(engine.annotateLastResult({ difficulty: "easy" }), false); // nothing logged yet
+  engine.startSet();
+  engine.completeSet();
+  assert.equal(engine.annotateLastResult({ difficulty: "easy", note: "smooth" }), true);
+  assert.equal(engine.annotateLastResult({ note: "next time add weight" }), true);
+  const r = engine.snapshot().results[0];
+  assert.equal(r?.difficulty, "easy");
+  assert.equal(r?.note, "smooth; next time add weight");
+});
+
+test("previous() from confirming_log cancels the pending log back to the set", () => {
+  const engine = createWorkoutEngine(sampleWorkout());
+  engine.start();
+  engine.next();
+  engine.startSet();
+  engine.voiceLog({ weight: 70, reps: 8, unit: "lb" });
+  assert.equal(engine.snapshot().status, "confirming_log");
+  engine.previous();
+  const snap = engine.snapshot();
+  assert.equal(snap.status, "active_set");
+  assert.equal(snap.pendingLog, null);
+  assert.equal(snap.results.length, 0);
+});
+
 test("zero rest advances immediately without a rest state", () => {
   const w = sampleWorkout();
   const first = w.steps[0];
