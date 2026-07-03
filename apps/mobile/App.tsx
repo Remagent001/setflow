@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { colors, getThemeMode, subscribeTheme, themedStyles } from "./src/theme";
 import { initApi } from "./src/api";
 import { initSettings } from "./src/settings";
+import { restoreSession, signOutSupabase } from "./src/auth";
 import LoginScreen from "./src/screens/LoginScreen";
 import TodayScreen from "./src/screens/TodayScreen";
 import WorkoutDetailScreen from "./src/screens/WorkoutDetailScreen";
@@ -36,9 +37,13 @@ export default function App() {
   const [pushed, setPushed] = useState<Pushed>(null);
   const [historyRefresh, setHistoryRefresh] = useState(0);
 
-  // Hydrate the offline store + settings before any screen renders.
+  // Hydrate the offline store + settings (and any saved sign-in) first.
   useEffect(() => {
-    Promise.all([initApi(), initSettings()]).then(() => setReady(true));
+    Promise.all([initApi(), initSettings()]).then(async () => {
+      const saved = await restoreSession();
+      if (saved) setEmail(saved);
+      setReady(true);
+    });
   }, []);
 
   // Theme toggles re-render the whole tree (stylesheets rebuild on read).
@@ -110,7 +115,15 @@ export default function App() {
       />
     );
   } else {
-    screen = <SettingsScreen email={email} onSignOut={() => setEmail(null)} />;
+    screen = (
+      <SettingsScreen
+        email={email}
+        onSignOut={() => {
+          signOutSupabase();
+          setEmail(null);
+        }}
+      />
+    );
   }
 
   return (

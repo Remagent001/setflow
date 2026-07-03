@@ -12,5 +12,6 @@ export type {
 } from "./types";
 export { createMockApiClient, type MockStore, type MockStorage } from "./mock";
 export { createSupabaseApiClient, type SupabaseApiConfig } from "./supabase";
+export { ensureStarterData } from "./starter";
 
 export const PACKAGE_NAME = "@setflow/api-client";

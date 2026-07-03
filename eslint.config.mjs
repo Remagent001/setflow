@@ -17,6 +17,13 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // Node-run ESM scripts (build tools, admin scripts).
+    files: ["**/*.mjs", "scripts/**"],
+    languageOptions: {
+      globals: { console: "readonly", process: "readonly" },
+    },
+  },
+  {
     // CommonJS config files (metro, babel) run under Node, not the bundler.
     files: ["**/*.config.js"],
     languageOptions: {

@@ -5,7 +5,13 @@
 // in, this same write path becomes the sync queue.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createMockApiClient, type ApiClient, type MockStore } from "@setflow/api-client";
+import {
+  createMockApiClient,
+  createSupabaseApiClient,
+  type ApiClient,
+  type MockStore,
+} from "@setflow/api-client";
+import { BACKEND, getSupabase } from "./backend";
 
 const STORE_KEY = "setflow-db-v1";
 
@@ -28,6 +34,10 @@ export function subscribeSyncStatus(listener: () => void): () => void {
 /** Hydrate the store from disk and build the client. Call once at launch. */
 export async function initApi(): Promise<ApiClient> {
   if (client) return client;
+  if (BACKEND === "supabase") {
+    client = createSupabaseApiClient({ client: getSupabase() });
+    return client;
+  }
   let hydrated: MockStore | null = null;
   try {
     const raw = await AsyncStorage.getItem(STORE_KEY);

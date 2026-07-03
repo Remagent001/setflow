@@ -1,10 +1,16 @@
 "use client";
 
-// Single ApiClient instance for the web app. Mock mode persisted to
-// localStorage so created data survives reloads; the switch to the real
-// Supabase client happens here (one file) once Supabase Auth lands.
+// Single ApiClient instance for the web app. Two modes (lib/backend.ts):
+// mock (localStorage-backed, the default) or supabase (real database with
+// auth-stamped ownership). Pages don't care which is active.
 
-import { createMockApiClient, type ApiClient, type MockStore } from "@setflow/api-client";
+import {
+  createMockApiClient,
+  createSupabaseApiClient,
+  type ApiClient,
+  type MockStore,
+} from "@setflow/api-client";
+import { BACKEND, getSupabase } from "./backend";
 
 const STORE_KEY = "setflow-mock-db";
 
@@ -12,6 +18,10 @@ let client: ApiClient | null = null;
 
 export function getApi(): ApiClient {
   if (client) return client;
+  if (BACKEND === "supabase") {
+    client = createSupabaseApiClient({ client: getSupabase() });
+    return client;
+  }
   client = createMockApiClient({
     storage: {
       load(): MockStore | null {

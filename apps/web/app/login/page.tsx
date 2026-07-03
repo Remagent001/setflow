@@ -2,11 +2,46 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { signIn } from "../../lib/auth";
+import { BACKEND, signIn, signInWithPassword, signUpWithPassword } from "../../lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const submit = async (mode: "in" | "up") => {
+    if (!email.trim()) return;
+    if (BACKEND === "mock") {
+      signIn(email.trim());
+      router.push("/dashboard");
+      return;
+    }
+    if (!password) {
+      setNotice("Enter your password.");
+      return;
+    }
+    setBusy(true);
+    setNotice("");
+    try {
+      if (mode === "in") {
+        await signInWithPassword(email.trim(), password);
+        router.push("/dashboard");
+      } else {
+        const result = await signUpWithPassword(email.trim(), password);
+        if (result === "confirm_email") {
+          setNotice("Check your email for the confirmation link, then sign in.");
+        } else {
+          router.push("/dashboard");
+        }
+      }
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Sign-in failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <main
@@ -22,9 +57,7 @@ export default function LoginPage() {
         style={{ width: 360, display: "flex", flexDirection: "column", gap: 14 }}
         onSubmit={(e) => {
           e.preventDefault();
-          if (!email.trim()) return;
-          signIn(email.trim());
-          router.push("/dashboard");
+          submit("in");
         }}
       >
         <div>
@@ -40,12 +73,33 @@ export default function LoginPage() {
           onChange={(e) => setEmail(e.target.value)}
           autoFocus
         />
-        <button className="btn" type="submit">
-          Sign in
+        {BACKEND === "supabase" && (
+          <input
+            type="password"
+            placeholder="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        )}
+        <button className="btn" type="submit" disabled={busy}>
+          {busy ? "Signing in..." : "Sign in"}
         </button>
-        <p style={{ margin: 0, color: "var(--muted)", fontSize: 12 }}>
-          Dev preview: any email works (mock auth until Segment 5).
-        </p>
+        {BACKEND === "supabase" ? (
+          <button
+            className="btn"
+            type="button"
+            disabled={busy}
+            style={{ background: "var(--panel2)", color: "var(--text)" }}
+            onClick={() => submit("up")}
+          >
+            Create account
+          </button>
+        ) : (
+          <p style={{ margin: 0, color: "var(--muted)", fontSize: 12 }}>
+            Dev preview: any email works (mock auth).
+          </p>
+        )}
+        {notice && <p style={{ margin: 0, color: "#ff7a7a", fontSize: 13 }}>{notice}</p>}
       </form>
     </main>
   );
