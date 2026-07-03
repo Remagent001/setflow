@@ -1,44 +1,51 @@
-// Session history (light version - the full logs/history UX is Segment 14).
+// Workout history (Segment 14): completed sessions, newest first.
+// Tap one to open the session detail with editable set logs.
 
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import type { WorkoutSession } from "@setflow/shared";
 import { colors } from "../theme";
 import { getApi, MOCK_USER_ID } from "../api";
 import { Card, H1, Muted } from "../components/ui";
 
-type Row = {
-  id: string;
-  planTitle: string;
-  completedAt?: string;
-  durationSeconds?: number;
-  sets: number;
+type Row = WorkoutSession & { planTitle: string; setCount: number };
+
+const STATUS_LABELS: Record<WorkoutSession["status"], string> = {
+  not_started: "not started",
+  in_progress: "in progress",
+  completed: "completed",
+  abandoned: "ended early",
 };
 
-export default function HistoryScreen({ refreshKey }: { refreshKey: number }) {
+export default function HistoryScreen({
+  refreshKey,
+  onOpenSession,
+}: {
+  refreshKey: number;
+  onOpenSession: (sessionId: string) => void;
+}) {
   const [rows, setRows] = useState<Row[] | null>(null);
 
   const load = useCallback(async () => {
     const api = getApi();
-    const summary = await api.getDashboardSummary(MOCK_USER_ID);
-    // The mock api has no listSessions yet (Segment 14 adds it); show the
-    // aggregate summary so completed sessions are visible right away.
-    setRows(
-      summary.workoutsThisWeek > 0
-        ? [
-            {
-              id: "summary",
-              planTitle: `${summary.workoutsThisWeek} completed workout${summary.workoutsThisWeek === 1 ? "" : "s"}`,
-              sets: summary.totalSets,
-              durationSeconds: undefined,
-            },
-          ]
-        : []
+    const sessions = await api.listSessions(MOCK_USER_ID);
+    const withDetail = await Promise.all(
+      sessions.map(async (s) => {
+        const [plan, logs] = await Promise.all([
+          api.getWorkoutPlan(s.workoutPlanId),
+          api.listSetLogs(s.id),
+        ]);
+        return { ...s, planTitle: plan?.title ?? "Workout", setCount: logs.length };
+      })
     );
+    setRows(withDetail);
   }, []);
 
   useEffect(() => {
     load();
   }, [load, refreshKey]);
+
+  const mins = (s?: number) => (s != null ? `${Math.max(1, Math.round(s / 60))} min` : "");
 
   return (
     <View style={styles.wrap}>
@@ -47,7 +54,7 @@ export default function HistoryScreen({ refreshKey }: { refreshKey: number }) {
         <Muted>Loading...</Muted>
       ) : rows.length === 0 ? (
         <Card>
-          <Muted>No workouts finished yet - your completed sessions will show up here.</Muted>
+          <Muted>No workouts yet - your completed sessions will show up here.</Muted>
         </Card>
       ) : (
         <FlatList
@@ -55,14 +62,20 @@ export default function HistoryScreen({ refreshKey }: { refreshKey: number }) {
           keyExtractor={(r) => r.id}
           contentContainerStyle={{ gap: 10 }}
           renderItem={({ item }) => (
-            <Card>
-              <Text style={styles.title}>{item.planTitle}</Text>
-              <Muted>{item.sets} sets logged this session run</Muted>
-            </Card>
+            <Pressable onPress={() => onOpenSession(item.id)}>
+              <Card>
+                <Text style={styles.title}>{item.planTitle}</Text>
+                <Muted>
+                  {new Date(item.createdAt).toLocaleDateString()} ·{" "}
+                  {STATUS_LABELS[item.status]}
+                  {item.durationSeconds != null ? ` · ${mins(item.durationSeconds)}` : ""} ·{" "}
+                  {item.setCount} set{item.setCount === 1 ? "" : "s"}
+                </Muted>
+              </Card>
+            </Pressable>
           )}
         />
       )}
-      <Muted>Detailed per-set history arrives in Segment 14.</Muted>
     </View>
   );
 }

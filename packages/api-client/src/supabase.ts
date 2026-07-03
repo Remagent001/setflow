@@ -104,6 +104,10 @@ export function createSupabaseApiClient(config: SupabaseApiConfig): ApiClient {
         startedAt: new Date().toISOString(),
       }),
     getSession: (id) => selectOne<WorkoutSession>("workout_sessions", id),
+    listSessions: async (userId) => {
+      const rows = await selectAll<WorkoutSession>("workout_sessions", { user_id: userId });
+      return rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    },
     completeSession: (id, durationSeconds) =>
       updateOne<WorkoutSession>("workout_sessions", id, {
         status: "completed",

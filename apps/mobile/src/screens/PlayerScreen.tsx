@@ -16,7 +16,7 @@ import {
   type WorkoutEngine,
 } from "@setflow/workout-engine";
 import { colors } from "../theme";
-import { getApi, MOCK_USER_ID } from "../api";
+import { getApi } from "../api";
 import { endSession, getSession, startSession, type ActiveSession } from "../session";
 import GlassesCardRN from "../components/GlassesCardRN";
 import { Button, Card, Muted } from "../components/ui";
@@ -291,56 +291,9 @@ export default function PlayerScreen({
     return session.engine.subscribe(setSnap);
   }, [session]);
 
-  // On completion: write the session + set logs, then roll the weights the
-  // user actually lifted forward as the plan's new defaults.
-  useEffect(() => {
-    if (!snap || !session || !workout || snap.status !== "workout_complete" || session.saved)
-      return;
-    session.saved = true;
-    const api = getApi();
-    const durationSeconds = Math.round((Date.now() - session.startedAtMs) / 1000);
-    (async () => {
-      const dbSession = await api.startSession(MOCK_USER_ID, planId);
-      for (const r of snap.results) {
-        await api.createSetLog({
-          sessionId: dbSession.id,
-          workoutStepId: r.workoutStepId,
-          exerciseId: r.exerciseId,
-          setNumber: r.setNumber,
-          targetWeight: r.targetWeight,
-          targetReps: r.targetReps,
-          targetDurationSeconds: r.targetDurationSeconds,
-          actualWeight: r.actualWeight,
-          actualReps: r.actualReps,
-          actualDurationSeconds: r.actualDurationSeconds,
-          unit: r.unit,
-          status: r.status,
-          difficulty: r.difficulty,
-          note: r.note,
-          loggedBy: r.loggedBy,
-          transcript: r.transcript,
-          confidence: r.confidence,
-        });
-      }
-      await api.completeSession(dbSession.id, durationSeconds);
-
-      // "Next time, default to what I actually lifted."
-      const lastWeightByStep = new Map<string, number>();
-      for (const r of snap.results) {
-        if (r.status === "completed" && r.actualWeight != null) {
-          lastWeightByStep.set(r.workoutStepId, r.actualWeight);
-        }
-      }
-      for (const [stepId, weight] of lastWeightByStep) {
-        const step = workout.steps.find((s) => s.step.id === stepId);
-        if (step && step.step.targetWeight !== weight) {
-          await api.updateWorkoutStep(stepId, { targetWeight: weight });
-        }
-      }
-    })().catch(() => {
-      session.saved = false; // allow a retry on the next render
-    });
-  }, [snap, session, workout, planId]);
+  // Persistence lives in src/session.ts (Segment 14): the session row is
+  // created at start, each set saves as it's logged, completion + weight
+  // rollforward happen even if this screen is closed.
 
   if (!session || !snap) {
     return (

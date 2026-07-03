@@ -11,10 +11,15 @@ import TodayScreen from "./src/screens/TodayScreen";
 import WorkoutDetailScreen from "./src/screens/WorkoutDetailScreen";
 import PlayerScreen from "./src/screens/PlayerScreen";
 import HistoryScreen from "./src/screens/HistoryScreen";
+import SessionDetailScreen from "./src/screens/SessionDetailScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 
 type Tab = "today" | "history" | "settings";
-type Pushed = { name: "detail"; planId: string } | { name: "player"; planId: string } | null;
+type Pushed =
+  | { name: "detail"; planId: string }
+  | { name: "player"; planId: string }
+  | { name: "session"; sessionId: string }
+  | null;
 
 const TABS: Array<{ key: Tab; label: string; icon: string }> = [
   { key: "today", label: "Today", icon: "▦" },
@@ -68,8 +73,17 @@ export default function App() {
         onStartPlan={(planId) => setPushed({ name: "player", planId })}
       />
     );
+  } else if (pushed?.name === "session") {
+    screen = (
+      <SessionDetailScreen sessionId={pushed.sessionId} onBack={() => setPushed(null)} />
+    );
   } else if (tab === "history") {
-    screen = <HistoryScreen refreshKey={historyRefresh} />;
+    screen = (
+      <HistoryScreen
+        refreshKey={historyRefresh}
+        onOpenSession={(sessionId) => setPushed({ name: "session", sessionId })}
+      />
+    );
   } else {
     screen = <SettingsScreen email={email} onSignOut={() => setEmail(null)} />;
   }

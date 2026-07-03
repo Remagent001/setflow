@@ -45,6 +45,8 @@ export interface ApiClient {
   // --- Sessions ------------------------------------------------------------
   startSession(userId: string, workoutPlanId: string): Promise<WorkoutSession>;
   getSession(id: string): Promise<WorkoutSession | null>;
+  /** All of a user's sessions, newest first. */
+  listSessions(userId: string): Promise<WorkoutSession[]>;
   completeSession(id: string, durationSeconds: number): Promise<WorkoutSession>;
   abandonSession(id: string): Promise<WorkoutSession>;
 

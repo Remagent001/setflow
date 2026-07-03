@@ -236,6 +236,11 @@ export function createMockApiClient(options?: { storage?: MockStorage }): ApiCli
     async getSession(sessionId) {
       return store.sessions.find((s) => s.id === sessionId) ?? null;
     },
+    async listSessions(userId) {
+      return store.sessions
+        .filter((s) => s.userId === userId)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    },
     async completeSession(sessionId, durationSeconds) {
       const s = mustFind(store.sessions, sessionId, "session");
       Object.assign(s, {
