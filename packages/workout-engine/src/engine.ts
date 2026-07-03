@@ -68,6 +68,8 @@ export type EngineSnapshot = {
   restRemainingSeconds: number;
   results: EngineSetResult[];
   pendingLog: PendingLog | null;
+  /** Session-time weight override for the current exercise, if the user set one. */
+  weightOverride: number | null;
   card: GlassesCard;
 };
 
@@ -92,6 +94,8 @@ export class WorkoutEngine {
   private restRemainingSeconds = 0;
   private pendingLog: PendingLog | null = null;
   private results: EngineSetResult[] = [];
+  /** Session-time weight adjustments, keyed by workout step id. */
+  private weightOverrides = new Map<string, number>();
   private startedAtMs: number | null = null;
   private endedAtMs: number | null = null;
   private listeners: Listener[] = [];
@@ -117,6 +121,29 @@ export class WorkoutEngine {
 
   private get current(): EngineExerciseStep | undefined {
     return this.steps[this.exerciseIndex];
+  }
+
+  /** Effective target weight: the user's session override wins over the plan. */
+  private targetWeightFor(step: EngineExerciseStep): number | undefined {
+    return this.weightOverrides.get(step.step.id) ?? step.step.targetWeight;
+  }
+
+  /**
+   * Change the working weight for the current exercise (all remaining sets
+   * this session). Pass null to go back to the plan's target. The host app
+   * persists it as the new default when the workout completes.
+   */
+  setWeightOverride(weight: number | null): void {
+    const step = this.current;
+    if (!step) return;
+    const allowed = ["exercise_preview", "demo", "active_set", "listening_for_log"];
+    if (!allowed.includes(this.status)) return;
+    if (weight === null || !Number.isFinite(weight) || weight < 0) {
+      this.weightOverrides.delete(step.step.id);
+    } else {
+      this.weightOverrides.set(step.step.id, weight);
+    }
+    this.notify();
   }
 
   // --- navigation ----------------------------------------------------------
@@ -210,7 +237,7 @@ export class WorkoutEngine {
     const step = this.current;
     if (!step) return;
     this.recordResult({
-      weight: actuals?.weight ?? step.step.targetWeight,
+      weight: actuals?.weight ?? this.targetWeightFor(step),
       reps: actuals?.reps ?? step.step.targetReps,
       durationSeconds: actuals?.durationSeconds ?? step.step.targetDurationSeconds,
       unit: this.unit,
@@ -438,6 +465,7 @@ export class WorkoutEngine {
       restRemainingSeconds: this.restRemainingSeconds,
       results: [...this.results],
       pendingLog: this.pendingLog ? { ...this.pendingLog } : null,
+      weightOverride: step ? (this.weightOverrides.get(step.step.id) ?? null) : null,
       card: this.card(),
     };
   }
@@ -476,15 +504,16 @@ export class WorkoutEngine {
       case "active_set":
         return {
           kind: "active_set",
+          exerciseName: step?.exercise.name ?? "",
           setNumber: this.setNumber,
           setCount: step?.step.setCount ?? 0,
-          targetWeight: step?.step.targetWeight,
+          targetWeight: step ? this.targetWeightFor(step) : undefined,
           targetReps: step?.step.targetReps,
           targetDurationSeconds: step?.step.targetDurationSeconds,
           unit: this.unit,
         };
       case "listening_for_log": {
-        const w = step?.step.targetWeight ?? 75;
+        const w = (step ? this.targetWeightFor(step) : undefined) ?? 75;
         const r = step?.step.targetReps ?? 10;
         return { kind: "listening", examplePhrase: `Say: "${w} for ${r}"` };
       }
@@ -501,6 +530,7 @@ export class WorkoutEngine {
           kind: "rest",
           remainingSeconds: this.restRemainingSeconds,
           nextLabel: `Set ${this.setNumber + 1}`,
+          exerciseName: step?.exercise.name ?? "",
         };
       case "exercise_complete": {
         const nextStep = this.steps[this.exerciseIndex + 1];

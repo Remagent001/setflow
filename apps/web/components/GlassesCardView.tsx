@@ -67,6 +67,7 @@ function CardBody({ card }: { card: GlassesCard }) {
     case "active_set":
       return (
         <>
+          <div style={mid}>{card.exerciseName}</div>
           <div style={dim}>
             SET {card.setNumber} / {card.setCount}
           </div>
@@ -115,6 +116,7 @@ function CardBody({ card }: { card: GlassesCard }) {
     case "rest":
       return (
         <>
+          {card.exerciseName ? <div style={mid}>{card.exerciseName}</div> : null}
           <div style={dim}>REST</div>
           <div style={{ ...big, fontSize: 64 }}>{mmss(card.remainingSeconds)}</div>
           <div style={mid}>Next: {card.nextLabel}</div>

@@ -98,7 +98,12 @@ test("full happy path: 2 exercises, sets advance, correct cards, completes", () 
   engine.completeSet({ weight: 80, reps: 9 });
   snap = engine.snapshot();
   assert.equal(snap.status, "resting");
-  assert.deepEqual(snap.card, { kind: "rest", remainingSeconds: 60, nextLabel: "Set 2" });
+  assert.deepEqual(snap.card, {
+    kind: "rest",
+    remainingSeconds: 60,
+    nextLabel: "Set 2",
+    exerciseName: "Bench Press",
+  });
 
   // Rest counts down and auto-advances to set 2.
   for (let i = 0; i < 60; i++) engine.tick();
@@ -274,6 +279,52 @@ test("subscribe fires on every transition", () => {
   unsubscribe();
   engine.completeSet();
   assert.deepEqual(seen, ["workout_preview", "exercise_preview", "active_set"]);
+});
+
+test("active_set and rest cards always carry the exercise name", () => {
+  const engine = createWorkoutEngine(sampleWorkout());
+  engine.start();
+  engine.next();
+  engine.startSet();
+  const setCard = engine.snapshot().card;
+  assert.equal(setCard.kind, "active_set");
+  assert.equal((setCard as { exerciseName: string }).exerciseName, "Bench Press");
+  engine.completeSet();
+  const restCard = engine.snapshot().card;
+  assert.equal(restCard.kind, "rest");
+  assert.equal((restCard as { exerciseName?: string }).exerciseName, "Bench Press");
+});
+
+test("weight override drives the card, the phrase, and the logged actuals - plan target stays", () => {
+  const engine = createWorkoutEngine(sampleWorkout());
+  engine.start();
+  engine.next(); // Bench preview (plan target 75)
+  engine.setWeightOverride(80);
+  assert.equal(engine.snapshot().weightOverride, 80);
+
+  engine.startSet();
+  const card = engine.snapshot().card;
+  assert.equal((card as { targetWeight?: number }).targetWeight, 80);
+
+  engine.startListening();
+  assert.equal(
+    (engine.snapshot().card as { examplePhrase: string }).examplePhrase,
+    'Say: "80 for 10"'
+  );
+  engine.stopListening();
+
+  engine.completeSet(); // no explicit actuals -> defaults to the override
+  const logged = engine.snapshot().results[0];
+  assert.equal(logged?.actualWeight, 80);
+  assert.equal(logged?.targetWeight, 75); // the plan's target is preserved for reporting
+
+  // Override persists for the next set of the same exercise.
+  engine.skipRest();
+  assert.equal((engine.snapshot().card as { targetWeight?: number }).targetWeight, 80);
+
+  // Clearing goes back to the plan target.
+  engine.setWeightOverride(null);
+  assert.equal((engine.snapshot().card as { targetWeight?: number }).targetWeight, 75);
 });
 
 test("zero rest advances immediately without a rest state", () => {

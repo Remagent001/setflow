@@ -41,7 +41,15 @@ const SAMPLE_CARDS: Array<{ label: string; card: GlassesCard }> = [
   },
   {
     label: "Active set",
-    card: { kind: "active_set", setNumber: 2, setCount: 4, targetWeight: 60, targetReps: 8, unit: "lb" },
+    card: {
+      kind: "active_set",
+      exerciseName: "Incline Dumbbell Press",
+      setNumber: 2,
+      setCount: 4,
+      targetWeight: 60,
+      targetReps: 8,
+      unit: "lb",
+    },
   },
   { label: "Listening", card: { kind: "listening", examplePhrase: 'Say: "60 for 8"' } },
   {
@@ -58,7 +66,15 @@ const SAMPLE_CARDS: Array<{ label: string; card: GlassesCard }> = [
       ],
     },
   },
-  { label: "Rest", card: { kind: "rest", remainingSeconds: 72, nextLabel: "Set 3" } },
+  {
+    label: "Rest",
+    card: {
+      kind: "rest",
+      remainingSeconds: 72,
+      nextLabel: "Set 3",
+      exerciseName: "Incline Dumbbell Press",
+    },
+  },
   {
     label: "Workout complete",
     card: { kind: "workout_complete", durationMinutes: 47, totalSets: 12, message: "Nice work!" },

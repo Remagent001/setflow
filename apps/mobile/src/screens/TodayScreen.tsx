@@ -5,6 +5,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import type { WorkoutPlan } from "@setflow/shared";
 import { colors } from "../theme";
 import { getApi } from "../api";
+import { getSession } from "../session";
 import { Button, Card, H1, Muted } from "../components/ui";
 
 export default function TodayScreen({
@@ -21,10 +22,18 @@ export default function TodayScreen({
   }, []);
 
   const today = plans?.[0];
+  const active = getSession();
 
   return (
     <View style={styles.wrap}>
       <H1>Today</H1>
+      {active && (
+        <Card style={{ gap: 10, borderColor: colors.accent }}>
+          <Muted>WORKOUT IN PROGRESS</Muted>
+          <Text style={styles.title}>{active.planTitle}</Text>
+          <Button title="Resume workout" onPress={() => onStartPlan(active.planId)} />
+        </Card>
+      )}
       {plans === null ? (
         <Muted>Loading...</Muted>
       ) : !today ? (

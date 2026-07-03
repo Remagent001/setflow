@@ -39,6 +39,8 @@ export type GlassesCard =
     }
   | {
       kind: "active_set";
+      /** Always shown so the wearer never loses track of what they're doing. */
+      exerciseName: string;
       setNumber: number;
       setCount: number;
       targetWeight?: number;
@@ -68,6 +70,8 @@ export type GlassesCard =
       remainingSeconds: number;
       /** e.g. "Set 3" or "Incline Dumbbell Press" */
       nextLabel: string;
+      /** The exercise being rested within, when resting between sets. */
+      exerciseName?: string;
     }
   | {
       kind: "workout_complete";

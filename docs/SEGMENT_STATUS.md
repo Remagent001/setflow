@@ -1,15 +1,15 @@
 # Segment Status
 
 ## Current Segment
-Segment: 11
-Name: Mobile Workout Player
+Segment: 12
+Name: Voice Parser
 Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 10
-Commit: segment-10-mobile-shell
-Date: 2026-07-02
-Notes: Real Expo app (SDK 57, RN 0.86) in apps/mobile with monorepo metro config. Six screens: login (mock auth), today's workout, workout detail, active player (drives the shared WorkoutEngine, renders GlassesCard via GlassesCardRN - same data as the mock glasses - live 1s rest countdown, completes + persists sessions), history, settings; hand-rolled tab/stack navigation. Keith runs it via Expo Go: `npm run start` in apps/mobile, scan the QR. Live-verified end to end in Expo web + Playwright (login -> start -> sets -> rest timer -> complete -> history shows the session).
+Segment: 11
+Commit: segment-11-mobile-workout-player
+Date: 2026-07-03
+Notes: Player deepened per Keith's on-device feedback (Expo pinned to SDK 54 = his Expo Go). Exercise name now on active_set + rest cards (shared type change, both renderers). Back button (engine.previous). Adjustable weight per exercise (engine.setWeightOverride: session override drives card/phrase/logged actuals; plan target preserved in logs) with -5/+5 stepper + numeric input; on completion the lifted weight rolls forward via updateWorkoutStep as the new default. Session moved to a module store (src/session.ts) with a global 1s ticker: minimizing the player / switching tabs keeps the workout + rest timer running; Today shows Resume. Demo media wired from listExerciseMedia into the engine workout. 14 engine tests pass.
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
@@ -23,7 +23,7 @@ Notes: Real Expo app (SDK 57, RN 0.86) in apps/mobile with monorepo metro config
 - [x] Segment 08 — Workout Engine
 - [x] Segment 09 — Glasses Adapter Mock
 - [x] Segment 10 — Mobile Shell
-- [ ] Segment 11 — Mobile Workout Player
+- [x] Segment 11 — Mobile Workout Player
 - [ ] Segment 12 — Voice Parser
 - [ ] Segment 13 — Voice Logging UX
 - [ ] Segment 14 — Set Logs and History
@@ -39,4 +39,4 @@ Notes: Real Expo app (SDK 57, RN 0.86) in apps/mobile with monorepo metro config
 None.
 
 ## Next Step
-Start Segment 11 — Mobile Workout Player (deepen the player: demo media, previous/next, richer set flow).
+Start Segment 12 — Voice Parser (parse "75 for 10", "same weight", difficulty words into structured set logs).

@@ -55,6 +55,10 @@ export default function App() {
           setHistoryRefresh((n) => n + 1);
           setTab("history");
         }}
+        onMinimize={() => {
+          setPushed(null);
+          setTab("today");
+        }}
       />
     );
   } else if (tab === "today") {
