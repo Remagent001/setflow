@@ -375,9 +375,7 @@ export default function PlayerScreen({
   const step = workout?.steps[snap.exerciseIndex];
   const effectiveWeight = snap.weightOverride ?? step?.step.targetWeight;
   const canEditWeight = ["exercise_preview", "demo", "active_set"].includes(snap.status);
-  const canGoBack = ["demo", "active_set", "listening_for_log", "exercise_preview"].includes(
-    snap.status
-  );
+  const canAddSet = ["active_set", "resting", "exercise_complete"].includes(snap.status);
 
   const actions: Array<{ title: string; onPress: () => void; kind?: "quiet" | "danger" }> = [];
   switch (snap.status) {
@@ -392,6 +390,7 @@ export default function PlayerScreen({
       break;
     case "demo":
       actions.push({ title: "Start set", onPress: () => engine.next() });
+      actions.push({ title: "Back", kind: "quiet", onPress: () => engine.previous() });
       break;
     case "active_set":
       actions.push({ title: "Complete set", onPress: () => engine.completeSet() });
@@ -417,8 +416,8 @@ export default function PlayerScreen({
     default:
       break;
   }
-  if (canGoBack) {
-    actions.push({ title: "Back", kind: "quiet", onPress: () => engine.previous() });
+  if (canAddSet) {
+    actions.push({ title: "Add set", kind: "quiet", onPress: () => engine.addSet() });
   }
   if (snap.status !== "workout_complete" && snap.status !== "paused") {
     actions.push({ title: "Pause", kind: "quiet", onPress: () => engine.pause() });

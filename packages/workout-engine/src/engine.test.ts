@@ -378,6 +378,41 @@ test("previous() from confirming_log cancels the pending log back to the set", (
   assert.equal(snap.results.length, 0);
 });
 
+test("addSet mid-exercise raises the set count for this session", () => {
+  const engine = createWorkoutEngine(sampleWorkout()); // Bench: 2 sets
+  engine.start();
+  engine.next();
+  engine.startSet();
+  engine.addSet();
+  assert.equal(engine.snapshot().setCount, 3);
+  engine.completeSet(); // set 1 -> resting (2 of 3 remain)
+  engine.skipRest();
+  engine.completeSet(); // set 2 -> still resting toward set 3, not exercise_complete
+  assert.equal(engine.snapshot().status, "resting");
+  engine.skipRest();
+  engine.completeSet(); // set 3 -> now the exercise is done
+  assert.equal(engine.snapshot().status, "exercise_complete");
+});
+
+test("addSet during the between-exercise rest pulls you back for one more", () => {
+  const engine = createWorkoutEngine(sampleWorkout());
+  engine.start();
+  engine.next();
+  engine.startSet();
+  engine.completeSet();
+  engine.skipRest();
+  engine.completeSet(); // last planned Bench set -> exercise_complete rest
+  assert.equal(engine.snapshot().status, "exercise_complete");
+  engine.addSet();
+  const snap = engine.snapshot();
+  assert.equal(snap.status, "resting"); // staying on Bench
+  engine.skipRest();
+  const active = engine.snapshot();
+  assert.equal(active.status, "active_set");
+  assert.equal(active.setNumber, 3);
+  assert.equal((active.card as { exerciseName: string }).exerciseName, "Bench Press");
+});
+
 test("zero rest advances immediately without a rest state", () => {
   const w = sampleWorkout();
   const first = w.steps[0];

@@ -110,6 +110,8 @@ export class WorkoutEngine {
   private results: EngineSetResult[] = [];
   /** Session-time weight adjustments, keyed by workout step id. */
   private weightOverrides = new Map<string, number>();
+  /** Extra sets added on the fly this session, keyed by workout step id. */
+  private extraSets = new Map<string, number>();
   private startedAtMs: number | null = null;
   private endedAtMs: number | null = null;
   private listeners: Listener[] = [];
@@ -140,6 +142,37 @@ export class WorkoutEngine {
   /** Effective target weight: the user's session override wins over the plan. */
   private targetWeightFor(step: EngineExerciseStep): number | undefined {
     return this.weightOverrides.get(step.step.id) ?? step.step.targetWeight;
+  }
+
+  /** Plan sets plus any added on the fly this session. */
+  private setCountFor(step: EngineExerciseStep): number {
+    return step.step.setCount + (this.extraSets.get(step.step.id) ?? 0);
+  }
+
+  /**
+   * One more set of the current exercise, decided mid-workout. Works during
+   * a set, during rest, and even during the between-exercise rest (it pulls
+   * you back into this exercise instead of moving on).
+   */
+  addSet(): void {
+    const step = this.current;
+    if (!step) return;
+    const allowed = [
+      "exercise_preview",
+      "demo",
+      "active_set",
+      "listening_for_log",
+      "confirming_log",
+      "resting",
+      "exercise_complete",
+    ];
+    if (!allowed.includes(this.status)) return;
+    this.extraSets.set(step.step.id, (this.extraSets.get(step.step.id) ?? 0) + 1);
+    if (this.status === "exercise_complete") {
+      // Was heading to the next exercise; stay here for the extra set instead.
+      this.status = "resting";
+    }
+    this.notify();
   }
 
   /**
@@ -340,7 +373,7 @@ export class WorkoutEngine {
     if (!active.includes(this.status)) return;
     const step = this.current;
     if (step && this.status !== "exercise_complete") {
-      for (let s = this.setNumber; s <= step.step.setCount; s++) {
+      for (let s = this.setNumber; s <= this.setCountFor(step); s++) {
         this.results.push(this.buildResult(step, s, { unit: this.unit, loggedBy: "manual", status: "skipped" }));
       }
     }
@@ -436,7 +469,7 @@ export class WorkoutEngine {
   private advanceAfterSet(): void {
     const step = this.current;
     if (!step) return;
-    if (this.setNumber < step.step.setCount) {
+    if (this.setNumber < this.setCountFor(step)) {
       // More sets in this exercise: rest, then the next set.
       this.status = "resting";
       this.restRemainingSeconds = step.step.restSeconds;
@@ -501,7 +534,7 @@ export class WorkoutEngine {
       exerciseIndex: this.exerciseIndex,
       totalExercises: this.steps.length,
       setNumber: this.setNumber,
-      setCount: step?.step.setCount ?? 0,
+      setCount: step ? this.setCountFor(step) : 0,
       restRemainingSeconds: this.restRemainingSeconds,
       results: [...this.results],
       pendingLog: this.pendingLog ? { ...this.pendingLog } : null,
@@ -528,7 +561,7 @@ export class WorkoutEngine {
         return {
           kind: "exercise_preview",
           exerciseName: step?.exercise.name ?? "",
-          setCount: step?.step.setCount ?? 0,
+          setCount: step ? this.setCountFor(step) : 0,
           targetReps: step?.step.targetReps,
           restSeconds: step?.step.restSeconds ?? 0,
           hasDemo: Boolean(step?.demo),
@@ -546,7 +579,7 @@ export class WorkoutEngine {
           kind: "active_set",
           exerciseName: step?.exercise.name ?? "",
           setNumber: this.setNumber,
-          setCount: step?.step.setCount ?? 0,
+          setCount: step ? this.setCountFor(step) : 0,
           targetWeight: step ? this.targetWeightFor(step) : undefined,
           targetReps: step?.step.targetReps,
           targetDurationSeconds: step?.step.targetDurationSeconds,
