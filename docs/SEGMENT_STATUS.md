@@ -1,20 +1,20 @@
 # Segment Status
 
 ## Current Segment
-Segment: 02
-Name: Database Schema
-Status: In Progress
+Segment: 03
+Name: API Client and Backend Contracts
+Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 01
-Commit: segment-01-shared-domain-types
+Segment: 02
+Commit: segment-02-database-schema
 Date: 2026-07-02
-Notes: All domain/glasses/timer types compile; web + mobile import them.
+Notes: Schema + RLS + seed applied to live Supabase project (ref dbqcyxdyilqkhvxntwws); 9 tables verified, 10 seed exercises. Keys in local .env (gitignored).
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
 - [x] Segment 01 — Shared Domain Types
-- [ ] Segment 02 — Database Schema
+- [x] Segment 02 — Database Schema
 - [ ] Segment 03 — API Client
 - [ ] Segment 04 — Web Auth Shell
 - [ ] Segment 05 — Exercise Library
@@ -39,4 +39,4 @@ Notes: All domain/glasses/timer types compile; web + mobile import them.
 None.
 
 ## Next Step
-Segment 02 schema + seed + RLS policies are WRITTEN (packages/db/supabase/). Waiting on Keith: Supabase access (he has an account) to apply + validate them. Then mark 02 complete.
+Start Segment 03 — API Client and Backend Contracts (packages/api-client).

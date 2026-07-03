@@ -42,3 +42,24 @@ Validation:
 Notes:
 - Types only, no runtime deps; Zod validators deferred until the API layer
   needs them (Segment 3).
+
+## Segment 02 — Database Schema
+Date: 2026-07-02
+Commit: segment-02-database-schema
+Summary:
+- New Supabase project "setflow" created (org Rider's Org, us-west-2, ref dbqcyxdyilqkhvxntwws)
+- Applied 0001_initial_schema.sql: profiles + 8 app tables, all required
+  indexes (userId/planId/sessionId/exerciseId/createdAt), owner-only RLS on
+  every table (built-in exercises world-readable)
+- Applied seed.sql: 10-exercise built-in library
+- Verified live: 9 tables present, exercise count = 10
+- API keys + db password written to local .env (gitignored); .env.example updated pattern
+
+Validation:
+- migration applied: pass (via Supabase management API)
+- seed applied: pass (10 rows verified)
+- RLS enabled: pass (policies in migration)
+
+Notes:
+- Segment acceptance said "migrated locally"; we validated against the real
+  cloud project instead, which is strictly stronger for this stack.
