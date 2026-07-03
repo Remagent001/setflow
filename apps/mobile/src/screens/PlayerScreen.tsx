@@ -6,7 +6,7 @@
 // plan's new default when the workout completes.
 
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { Exercise } from "@setflow/shared";
 import {
   parseVoiceLog,
@@ -17,9 +17,15 @@ import {
 } from "@setflow/workout-engine";
 import { colors } from "../theme";
 import { getApi } from "../api";
-import { endSession, getSession, startSession, type ActiveSession } from "../session";
+import {
+  endSession,
+  getSession,
+  startSession,
+  type ActiveSession,
+  type JournalPatch,
+} from "../session";
 import GlassesCardRN from "../components/GlassesCardRN";
-import { Button, Card, Muted } from "../components/ui";
+import { Button, Card, ChipRow, Muted } from "../components/ui";
 
 const STATUS_LABELS: Record<EngineSnapshot["status"], string> = {
   idle: "Ready",
@@ -236,6 +242,68 @@ function VoiceLogPanel({
   );
 }
 
+/** Pre-workout check-in (Segment 15): every tap saves straight to the journal. */
+function PreJournalCard({ onPatch }: { onPatch: (p: JournalPatch) => void }) {
+  const [j, setJ] = useState<JournalPatch>({});
+  const [meal, setMeal] = useState("");
+  const set = (p: JournalPatch) => {
+    setJ((prev) => ({ ...prev, ...p }));
+    onPatch(p);
+  };
+  return (
+    <Card style={{ gap: 12 }}>
+      <Text style={styles.status}>Quick check-in (optional)</Text>
+      <ChipRow label="Energy" options={["low", "medium", "high"] as const} value={j.energy} onSelect={(v) => set({ energy: v })} />
+      <ChipRow label="Sleep" options={["poor", "okay", "good"] as const} value={j.sleep} onSelect={(v) => set({ sleep: v })} />
+      <ChipRow label="Soreness" options={["none", "mild", "moderate", "high"] as const} value={j.soreness} onSelect={(v) => set({ soreness: v })} />
+      <ChipRow label="Motivation" options={["low", "medium", "high"] as const} value={j.motivation} onSelect={(v) => set({ motivation: v })} />
+      <TextInput
+        style={styles.voiceInput}
+        value={meal}
+        onChangeText={setMeal}
+        onEndEditing={() => meal.trim() && onPatch({ preWorkoutMeal: meal.trim() })}
+        placeholder="Pre-workout meal (optional), e.g. oatmeal 45 min ago"
+        placeholderTextColor={colors.muted}
+      />
+    </Card>
+  );
+}
+
+/** Post-workout debrief (Segment 15). */
+function PostJournalCard({ onPatch }: { onPatch: (p: JournalPatch) => void }) {
+  const [j, setJ] = useState<JournalPatch>({});
+  const [bestLift, setBestLift] = useState("");
+  const [notes, setNotes] = useState("");
+  const set = (p: JournalPatch) => {
+    setJ((prev) => ({ ...prev, ...p }));
+    onPatch(p);
+  };
+  return (
+    <Card style={{ gap: 12 }}>
+      <Text style={styles.status}>How was it? (optional)</Text>
+      <ChipRow label="Overall effort" options={["easy", "moderate", "hard", "brutal"] as const} value={j.overallEffort} onSelect={(v) => set({ overallEffort: v })} />
+      <ChipRow label="Mood after" options={["worse", "same", "better"] as const} value={j.moodAfter} onSelect={(v) => set({ moodAfter: v })} />
+      <ChipRow label="Pain" options={["none", "mild", "moderate", "severe"] as const} value={j.pain} onSelect={(v) => set({ pain: v })} />
+      <TextInput
+        style={styles.voiceInput}
+        value={bestLift}
+        onChangeText={setBestLift}
+        onEndEditing={() => bestLift.trim() && onPatch({ bestLift: bestLift.trim() })}
+        placeholder="Best lift today (optional)"
+        placeholderTextColor={colors.muted}
+      />
+      <TextInput
+        style={styles.voiceInput}
+        value={notes}
+        onChangeText={setNotes}
+        onEndEditing={() => notes.trim() && onPatch({ notes: notes.trim() })}
+        placeholder="Anything else worth remembering?"
+        placeholderTextColor={colors.muted}
+      />
+    </Card>
+  );
+}
+
 export default function PlayerScreen({
   planId,
   onExit,
@@ -371,6 +439,7 @@ export default function PlayerScreen({
         <View style={{ width: 60 }} />
       </View>
 
+      <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 20 }}>
       <GlassesCardRN card={snap.card} />
 
       <Card style={{ gap: 4 }}>
@@ -389,6 +458,9 @@ export default function PlayerScreen({
           onChange={(w) => engine.setWeightOverride(w)}
         />
       )}
+
+      {snap.status === "workout_preview" && <PreJournalCard onPatch={session.journal} />}
+      {snap.status === "workout_complete" && <PostJournalCard onPatch={session.journal} />}
 
       {(snap.status === "listening_for_log" || snap.status === "confirming_log") && step && (
         <VoiceLogPanel
@@ -416,6 +488,7 @@ export default function PlayerScreen({
           </View>
         ))}
       </View>
+      </ScrollView>
     </View>
   );
 }

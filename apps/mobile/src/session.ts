@@ -9,6 +9,7 @@
 // lifted weights forward as the plan's new defaults) happens as soon as the
 // engine reaches workout_complete - even if the player screen is closed.
 
+import type { NewWorkoutJournal } from "@setflow/api-client";
 import {
   createWorkoutEngine,
   type EngineWorkout,
@@ -16,11 +17,16 @@ import {
 } from "@setflow/workout-engine";
 import { getApi, MOCK_USER_ID } from "./api";
 
+/** Journal fields minus the keys the store fills in itself. */
+export type JournalPatch = Partial<Omit<NewWorkoutJournal, "sessionId" | "userId">>;
+
 export type ActiveSession = {
   planId: string;
   planTitle: string;
   engine: WorkoutEngine;
   startedAtMs: number;
+  /** Upsert pre/post-workout journal fields onto this session (Segment 15). */
+  journal: (patch: JournalPatch) => void;
 };
 
 let current: ActiveSession | null = null;
@@ -31,7 +37,6 @@ export function startSession(planId: string, workout: EngineWorkout): ActiveSess
   endSession();
   const engine = createWorkoutEngine(workout);
   const startedAtMs = Date.now();
-  current = { planId, planTitle: workout.plan.title, engine, startedAtMs };
 
   // Sequential write queue so saves never race each other.
   const api = getApi();
@@ -49,6 +54,16 @@ export function startSession(planId: string, workout: EngineWorkout): ActiveSess
       return dbSessionId;
     });
   };
+
+  const journal = (patch: JournalPatch) => {
+    enqueue(async (dbSessionId) => {
+      if (!dbSessionId) return;
+      // saveJournal upserts by sessionId, so partial patches accumulate.
+      await api.saveJournal({ sessionId: dbSessionId, userId: MOCK_USER_ID, ...patch });
+    });
+  };
+
+  current = { planId, planTitle: workout.plan.title, engine, startedAtMs, journal };
 
   let savedCount = 0;
   let completed = false;

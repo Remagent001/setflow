@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import type { Exercise, SetLog, WorkoutSession } from "@setflow/shared";
+import type { Exercise, SetLog, WorkoutJournal, WorkoutSession } from "@setflow/shared";
 import { colors } from "../theme";
 import { getApi } from "../api";
 import { Button, Card, H1, Muted } from "../components/ui";
@@ -18,6 +18,7 @@ export default function SessionDetailScreen({
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [planTitle, setPlanTitle] = useState("Workout");
   const [logs, setLogs] = useState<SetLog[] | null>(null);
+  const [journal, setJournal] = useState<WorkoutJournal | null>(null);
   const [exercises, setExercises] = useState<Map<string, Exercise>>(new Map());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editWeight, setEditWeight] = useState("");
@@ -29,14 +30,16 @@ export default function SessionDetailScreen({
     const s = await api.getSession(sessionId);
     setSession(s);
     if (s) {
-      const [plan, setLogList, exs] = await Promise.all([
+      const [plan, setLogList, exs, j] = await Promise.all([
         api.getWorkoutPlan(s.workoutPlanId),
         api.listSetLogs(sessionId),
         api.listExercises(),
+        api.getJournal(sessionId),
       ]);
       if (plan) setPlanTitle(plan.title);
       setLogs(setLogList);
       setExercises(new Map(exs.map((e) => [e.id, e])));
+      setJournal(j);
     } else {
       setLogs([]);
     }
@@ -99,6 +102,39 @@ export default function SessionDetailScreen({
       </Muted>
 
       <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 16 }}>
+        {journal && (
+          <Card style={{ gap: 4 }}>
+            <Text style={styles.exercise}>Journal</Text>
+            {journal.energy || journal.sleep || journal.soreness || journal.motivation ? (
+              <Muted>
+                Before:{" "}
+                {[
+                  journal.energy && `energy ${journal.energy}`,
+                  journal.sleep && `sleep ${journal.sleep}`,
+                  journal.soreness && `soreness ${journal.soreness}`,
+                  journal.motivation && `motivation ${journal.motivation}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Muted>
+            ) : null}
+            {journal.preWorkoutMeal ? <Muted>Meal: {journal.preWorkoutMeal}</Muted> : null}
+            {journal.overallEffort || journal.moodAfter || journal.pain ? (
+              <Muted>
+                After:{" "}
+                {[
+                  journal.overallEffort && `effort ${journal.overallEffort}`,
+                  journal.moodAfter && `mood ${journal.moodAfter}`,
+                  journal.pain && `pain ${journal.pain}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Muted>
+            ) : null}
+            {journal.bestLift ? <Muted>Best lift: {journal.bestLift}</Muted> : null}
+            {journal.notes ? <Muted>{journal.notes}</Muted> : null}
+          </Card>
+        )}
         {logs === null ? (
           <Muted>Loading...</Muted>
         ) : groups.length === 0 ? (

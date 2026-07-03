@@ -46,6 +46,39 @@ export function H1({ children }: { children: React.ReactNode }) {
   return <Text style={styles.h1}>{children}</Text>;
 }
 
+/** One-tap pick-one row: LABEL  [option] [option] [option] */
+export function ChipRow<T extends string>({
+  label,
+  options,
+  value,
+  onSelect,
+}: {
+  label: string;
+  options: readonly T[];
+  value: T | undefined;
+  onSelect: (v: T) => void;
+}) {
+  return (
+    <View style={styles.chipRow}>
+      <Text style={styles.chipLabel}>{label}</Text>
+      <View style={styles.chipOptions}>
+        {options.map((o) => {
+          const active = value === o;
+          return (
+            <Pressable
+              key={o}
+              onPress={() => onSelect(o)}
+              style={[styles.chip, active && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{o}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export function Muted({ children }: { children: React.ReactNode }) {
   return <Text style={styles.muted}>{children}</Text>;
 }
@@ -70,4 +103,24 @@ const styles = StyleSheet.create({
   btnText: { color: colors.bg, fontWeight: "700", fontSize: 15 },
   h1: { color: colors.text, fontSize: 22, fontWeight: "700" },
   muted: { color: colors.muted, fontSize: 13 },
+  chipRow: { gap: 6 },
+  chipLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  chipOptions: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chip: {
+    backgroundColor: colors.panel2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  chipText: { color: colors.text, fontSize: 13 },
+  chipTextActive: { color: colors.bg, fontWeight: "700" },
 });
