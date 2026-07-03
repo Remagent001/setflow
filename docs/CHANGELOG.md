@@ -84,3 +84,21 @@ Validation:
 Notes:
 - Supabase impl compiles but is exercised against the live DB from Segment 4+
   (auth is needed first for RLS-scoped writes).
+
+## Segment 04 — Web Auth and App Shell
+Date: 2026-07-02
+Commit: segment-04-web-auth-shell
+Summary:
+- Login page (mock auth per the plan: any email, localStorage-backed;
+  Supabase Auth swap is contained to lib/auth.ts)
+- AppShell: sidebar nav (Dashboard/Workouts/Exercises/History/Reports/
+  Settings), top bar with user + sign out, auth guard redirecting to /login
+- Six protected placeholder pages; dark theme via globals.css
+- Root / redirects into the app
+
+Validation:
+- typecheck: pass  |  lint: pass  |  next build: pass (8 static routes)
+
+Notes:
+- Tailwind deferred (plain CSS is enough for the shell); revisit when real
+  UI density arrives in Segment 5+.

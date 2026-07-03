@@ -1,22 +1,22 @@
 # Segment Status
 
 ## Current Segment
-Segment: 04
-Name: Web Auth and App Shell
+Segment: 05
+Name: Exercise Library
 Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 03
-Commit: segment-03-api-client-contracts
+Segment: 04
+Commit: segment-04-web-auth-shell
 Date: 2026-07-02
-Notes: Typed ApiClient interface + mock impl (smoke-tested end to end) + Supabase impl (generic row mapping). Reports stubbed until Segment 16.
+Notes: Mock-auth login, protected AppShell (sidebar+topbar), 6 placeholder pages. All build statically.
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
 - [x] Segment 01 — Shared Domain Types
 - [x] Segment 02 — Database Schema
 - [x] Segment 03 — API Client
-- [ ] Segment 04 — Web Auth Shell
+- [x] Segment 04 — Web Auth Shell
 - [ ] Segment 05 — Exercise Library
 - [ ] Segment 06 — Exercise Media
 - [ ] Segment 07 — Workout Builder
@@ -39,4 +39,4 @@ Notes: Typed ApiClient interface + mock impl (smoke-tested end to end) + Supabas
 None.
 
 ## Next Step
-Start Segment 04 — Web Auth and App Shell (apps/web).
+Start Segment 05 — Exercise Library (apps/web + api-client).
