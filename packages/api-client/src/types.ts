@@ -30,6 +30,7 @@ export interface ApiClient {
   deleteExercise(id: string): Promise<void>;
   addExerciseMedia(input: NewExerciseMedia): Promise<ExerciseMedia>;
   listExerciseMedia(exerciseId: string): Promise<ExerciseMedia[]>;
+  deleteExerciseMedia(id: string): Promise<void>;
 
   // --- Workout plans -------------------------------------------------------
   listWorkoutPlans(): Promise<WorkoutPlan[]>;

@@ -134,7 +134,9 @@ export default function ExerciseForm({ existing }: { existing?: Exercise }) {
       <div className="card" style={{ background: "var(--panel2)", padding: 14 }}>
         <div style={{ fontSize: 13, fontWeight: 600 }}>Demo video</div>
         <div style={{ fontSize: 12, color: "var(--muted)" }}>
-          Uploads arrive in Segment 06 - this is the placeholder the plan calls for.
+          {existing
+            ? "Manage the demo video from this exercise's page after saving."
+            : "Create the exercise first, then add a demo video from its page."}
         </div>
       </div>
 

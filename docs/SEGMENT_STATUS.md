@@ -1,15 +1,15 @@
 # Segment Status
 
 ## Current Segment
-Segment: 06
-Name: Demo Video Uploads
+Segment: 07
+Name: Workout Builder
 Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 05
-Commit: segment-05-exercise-library
+Segment: 06
+Commit: segment-06-exercise-media
 Date: 2026-07-02
-Notes: Exercise CRUD (list/create/view/edit/delete) with cues, mistakes, muscle groups, equipment; persists via localStorage-backed mock store. Media placeholder in place for Segment 06.
+Notes: Demo video upload (IndexedDB-backed in mock mode) + external URL attach on exercise detail; preview player, thumbnails, duration guidance, delete, failure states. Media URL wired into the glasses demo card type. Storage-bucket migration written for the future Supabase swap.
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
@@ -18,7 +18,7 @@ Notes: Exercise CRUD (list/create/view/edit/delete) with cues, mistakes, muscle 
 - [x] Segment 03 — API Client
 - [x] Segment 04 — Web Auth Shell
 - [x] Segment 05 — Exercise Library
-- [ ] Segment 06 — Exercise Media
+- [x] Segment 06 — Exercise Media
 - [ ] Segment 07 — Workout Builder
 - [ ] Segment 08 — Workout Engine
 - [ ] Segment 09 — Glasses Adapter Mock
@@ -39,4 +39,4 @@ Notes: Exercise CRUD (list/create/view/edit/delete) with cues, mistakes, muscle 
 None.
 
 ## Next Step
-Start Segment 06 — Demo Video Uploads.
+Start Segment 07 — Workout Builder.

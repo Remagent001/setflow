@@ -34,6 +34,8 @@ export type GlassesCard =
       exerciseName: string;
       demoDurationSeconds?: number;
       cue?: string;
+      /** Demo clip to play, when the exercise has one and the device supports playShortVideo. */
+      media?: GlassesMedia;
     }
   | {
       kind: "active_set";

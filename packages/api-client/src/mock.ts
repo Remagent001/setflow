@@ -165,6 +165,11 @@ export function createMockApiClient(options?: { storage?: MockStorage }): ApiCli
     async listExerciseMedia(exerciseId) {
       return store.media.filter((m) => m.exerciseId === exerciseId);
     },
+    async deleteExerciseMedia(mediaId) {
+      const i = store.media.findIndex((m) => m.id === mediaId);
+      if (i >= 0) store.media.splice(i, 1);
+      persist();
+    },
 
     // --- plans ---------------------------------------------------------------
     async listWorkoutPlans() {

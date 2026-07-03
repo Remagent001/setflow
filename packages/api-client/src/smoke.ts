@@ -44,4 +44,20 @@ if (done.status !== "completed") throw new Error("FAIL: session not completed");
 const summary = await api.getDashboardSummary("mock-user");
 if (summary.totalVolume !== 750) throw new Error(`FAIL: volume ${summary.totalVolume} != 750`);
 console.log(`session completed; dashboard volume = ${summary.totalVolume} lb`);
+
+// Segment 06: exercise media round-trip (add, list, delete).
+const media = await api.addExerciseMedia({
+  exerciseId: step.exerciseId,
+  mediaType: "video",
+  url: "https://example.com/demo.mp4",
+  durationSeconds: 9,
+  angle: "front",
+});
+const mediaList = await api.listExerciseMedia(step.exerciseId);
+if (mediaList.length !== 1 || mediaList[0]!.url !== media.url)
+  throw new Error("FAIL: media not listed after add");
+await api.deleteExerciseMedia(media.id);
+if ((await api.listExerciseMedia(step.exerciseId)).length !== 0)
+  throw new Error("FAIL: media still listed after delete");
+console.log("exercise media add/list/delete OK");
 console.log("SMOKE PASS");

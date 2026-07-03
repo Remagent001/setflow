@@ -123,3 +123,40 @@ Validation:
 Notes:
 - Persistence is per-browser (localStorage) until Supabase Auth; acceptance
   criterion "exercise data persists" holds across reloads.
+
+## Segment 06 — Exercise Media (Demo Video Uploads)
+Date: 2026-07-02
+Commit: segment-06-exercise-media
+Summary:
+- ExerciseMediaSection on the exercise detail page: upload a video file OR
+  attach an external URL; playable preview, duration + storage badges,
+  remove button, 5-15s duration guidance (warn, not block)
+- Video bytes stored in IndexedDB (lib/media-store.ts) — far too big for the
+  localStorage mock store; metadata keeps a local-media:// URL. External
+  links stored as-is. Auto-captured JPEG thumbnail + duration via an
+  off-screen <video>/<canvas> probe (lib/video-utils.ts)
+- Failure states: non-video file rejected, >50MB rejected, orphaned blob
+  cleaned up if metadata save fails, missing-blob (cleared browser data)
+  shows a recover hint, all errors surfaced inline
+- ApiClient gained deleteExerciseMedia (mock + supabase); smoke test now
+  covers media add/list/delete
+- GlassesCard "demo" variant gained media?: GlassesMedia → the media URL is
+  available to mobile/glasses card data (acceptance criterion)
+- New migration 0002_storage_media_bucket.sql (exercise-media bucket +
+  owner-scoped policies) — written, NOT yet applied; applies at Supabase swap
+- apps/web now declares @setflow/api-client dependency properly
+
+Validation:
+- typecheck: pass  |  lint: pass  |  next build: pass (12 routes)
+- api-client smoke: PASS (incl. media round-trip)
+- Live browser test (Playwright): uploaded a real 10s mp4 → preview plays,
+  "10s · stored in this browser", survives reload; external-URL attach also
+  verified end-to-end; remove works
+
+Notes:
+- Found + fixed during live test: the probe set crossOrigin="anonymous",
+  which made non-CORS hosts fail entirely (duration read as unknown).
+  Removed it; cross-origin thumbnails fail soft (tainted canvas caught),
+  local uploads still get thumbnails.
+- Real uploads move to Supabase Storage when mock mode ends; the swap points
+  are lib/api.ts + lib/media-store.ts and migration 0002.

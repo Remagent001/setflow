@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { Exercise } from "@setflow/shared";
 import AppShell from "../../../components/AppShell";
+import ExerciseMediaSection from "../../../components/ExerciseMediaSection";
 import { getApi } from "../../../lib/api";
 
 export default function ExerciseDetailPage() {
@@ -94,15 +95,7 @@ export default function ExerciseDetailPage() {
               No details yet - hit Edit to add cues and instructions.
             </p>
           )}
-        <div
-          className="card"
-          style={{ background: "var(--panel2)", padding: 14, marginTop: 16 }}
-        >
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Demo video</div>
-          <div style={{ fontSize: 12, color: "var(--muted)" }}>
-            Uploads arrive in Segment 06.
-          </div>
-        </div>
+        <ExerciseMediaSection exerciseId={exercise.id} />
       </div>
     </AppShell>
   );

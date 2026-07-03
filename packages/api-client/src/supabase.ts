@@ -77,6 +77,7 @@ export function createSupabaseApiClient(config: SupabaseApiConfig): ApiClient {
     addExerciseMedia: (input) => insertOne<ExerciseMedia>("exercise_media", input),
     listExerciseMedia: (exerciseId) =>
       selectAll<ExerciseMedia>("exercise_media", { exercise_id: exerciseId }),
+    deleteExerciseMedia: (id) => deleteOne("exercise_media", id),
 
     // --- plans ---------------------------------------------------------------
     listWorkoutPlans: () => selectAll<WorkoutPlan>("workout_plans"),
