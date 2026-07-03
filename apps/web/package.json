@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@setflow/api-client": "*",
+    "@setflow/glasses-adapter": "*",
     "@setflow/shared": "*",
     "next": "^15.0.0",
     "react": "^19.0.0",

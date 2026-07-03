@@ -1,15 +1,15 @@
 # Segment Status
 
 ## Current Segment
-Segment: 09
-Name: Glasses Adapter Mock
+Segment: 10
+Name: Mobile Shell
 Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 08
-Commit: segment-08-workout-engine
+Segment: 09
+Commit: segment-09-glasses-adapter-mock
 Date: 2026-07-02
-Notes: Platform-agnostic WorkoutEngine state machine in packages/workout-engine: 11 states per build doc section 12, full navigation (start/next/previous/demo/pause/resume/skip set/skip exercise/skip rest/end), manual + voice-log-with-confirm/correct set logging, tick()-driven rest countdown with auto-advance, per-state GlassesCard generation, subscribe() for UIs, injectable clock. 12 unit tests pass (node --test).
+Notes: GlassesAdapter interface (build doc 13.1 verbatim) + full mock adapter in packages/glasses-adapter: capability gating with CapabilityUnavailableError, live capability toggles, gesture injection, promise-based voice capture with injectVoice, card/event subscriber hooks. Web preview at /glasses: virtual 600x600 lens (GlassesCardView renders all 9 card kinds), sample card gallery, capability switches, gesture buttons, voice capture simulation, event log. Live-verified in Playwright incl. degradation when displayCards is off.
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
@@ -21,7 +21,7 @@ Notes: Platform-agnostic WorkoutEngine state machine in packages/workout-engine:
 - [x] Segment 06 — Exercise Media
 - [x] Segment 07 — Workout Builder
 - [x] Segment 08 — Workout Engine
-- [ ] Segment 09 — Glasses Adapter Mock
+- [x] Segment 09 — Glasses Adapter Mock
 - [ ] Segment 10 — Mobile Shell
 - [ ] Segment 11 — Mobile Workout Player
 - [ ] Segment 12 — Voice Parser
@@ -39,4 +39,4 @@ Notes: Platform-agnostic WorkoutEngine state machine in packages/workout-engine:
 None.
 
 ## Next Step
-Start Segment 09 — Glasses Adapter Mock.
+Start Segment 10 — Mobile Shell.
