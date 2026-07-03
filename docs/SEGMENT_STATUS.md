@@ -3,7 +3,7 @@
 ## Current Segment
 Segment: 02
 Name: Database Schema
-Status: Not Started
+Status: In Progress
 
 ## Last Stable Checkpoint
 Segment: 01
@@ -39,4 +39,4 @@ Notes: All domain/glasses/timer types compile; web + mobile import them.
 None.
 
 ## Next Step
-Start Segment 02 — Database Schema (packages/db). Note: needs a decision on Supabase (free account) vs local Prisma/Postgres before it can be validated end-to-end.
+Segment 02 schema + seed + RLS policies are WRITTEN (packages/db/supabase/). Waiting on Keith: Supabase access (he has an account) to apply + validate them. Then mark 02 complete.
