@@ -1,15 +1,15 @@
 # Segment Status
 
 ## Current Segment
-Segment: 10
-Name: Mobile Shell
+Segment: 11
+Name: Mobile Workout Player
 Status: Not Started
 
 ## Last Stable Checkpoint
-Segment: 09
-Commit: segment-09-glasses-adapter-mock
+Segment: 10
+Commit: segment-10-mobile-shell
 Date: 2026-07-02
-Notes: GlassesAdapter interface (build doc 13.1 verbatim) + full mock adapter in packages/glasses-adapter: capability gating with CapabilityUnavailableError, live capability toggles, gesture injection, promise-based voice capture with injectVoice, card/event subscriber hooks. Web preview at /glasses: virtual 600x600 lens (GlassesCardView renders all 9 card kinds), sample card gallery, capability switches, gesture buttons, voice capture simulation, event log. Live-verified in Playwright incl. degradation when displayCards is off.
+Notes: Real Expo app (SDK 57, RN 0.86) in apps/mobile with monorepo metro config. Six screens: login (mock auth), today's workout, workout detail, active player (drives the shared WorkoutEngine, renders GlassesCard via GlassesCardRN - same data as the mock glasses - live 1s rest countdown, completes + persists sessions), history, settings; hand-rolled tab/stack navigation. Keith runs it via Expo Go: `npm run start` in apps/mobile, scan the QR. Live-verified end to end in Expo web + Playwright (login -> start -> sets -> rest timer -> complete -> history shows the session).
 
 ## Completed Segments
 - [x] Segment 00 — Repository Setup
@@ -22,7 +22,7 @@ Notes: GlassesAdapter interface (build doc 13.1 verbatim) + full mock adapter in
 - [x] Segment 07 — Workout Builder
 - [x] Segment 08 — Workout Engine
 - [x] Segment 09 — Glasses Adapter Mock
-- [ ] Segment 10 — Mobile Shell
+- [x] Segment 10 — Mobile Shell
 - [ ] Segment 11 — Mobile Workout Player
 - [ ] Segment 12 — Voice Parser
 - [ ] Segment 13 — Voice Logging UX
@@ -39,4 +39,4 @@ Notes: GlassesAdapter interface (build doc 13.1 verbatim) + full mock adapter in
 None.
 
 ## Next Step
-Start Segment 10 — Mobile Shell.
+Start Segment 11 — Mobile Workout Player (deepen the player: demo media, previous/next, richer set flow).
