@@ -1,186 +1,300 @@
 // SetFlow for the glasses (on-lens Web App). Runs the REAL shared
-// workout-engine against an embedded workout and renders GlassesCards as
-// DOM at 600x600. Input is the Neural Band: swipes arrive as arrow keys,
-// pinch as Enter (per Meta's Web App docs) - same keys work on a desktop
-// for testing. Weights you finish with are remembered in localStorage and
-// become the next session's defaults, mirroring the phone app.
+// workout-engine and renders at 600x600. Input is the Neural Band: swipes
+// arrive as arrow keys, index pinch as Enter, middle-finger pinch as Escape
+// (per Meta's Web App docs) - the same keys drive it on a desktop for testing.
+//
+// Flow: HOME (pick Day 1-5) -> pinch -> exercise preview -> pinch -> the set.
+// In a set: swipe left/right adjusts weight, up/down adjusts reps, pinch logs
+// it, middle-pinch exits back to HOME from anywhere. Finished weights + a
+// per-day "last session" summary persist in localStorage for the next visit.
 
-import { createWorkoutEngine, type EngineSnapshot, type EngineWorkout } from "../../../packages/workout-engine/src/engine";
-import type { Exercise, GlassesCard, WorkoutStep } from "../../../packages/shared/src/index";
+import {
+  createWorkoutEngine,
+  type EngineSnapshot,
+  type EngineWorkout,
+  type WorkoutEngine,
+} from "../../../packages/workout-engine/src/engine";
+import { WORKOUTS as GENERATED } from "./workouts.generated";
 
-// --- embedded workout (Upper Body A, same as the app's seed) -----------------
+// --- workouts (Keith's real Day 1-5, baked in) with a tiny offline fallback --
 
-const ts = "2026-07-03T00:00:00.000Z";
-const exercise = (id: string, name: string, cue: string): Exercise => ({
-  id, name, cues: [cue], createdAt: ts, updatedAt: ts,
-});
-const step = (
-  id: string, exerciseId: string, orderIndex: number,
-  over?: Partial<WorkoutStep>
-): WorkoutStep => ({
-  id, workoutPlanId: "plan-1", exerciseId, orderIndex,
-  setCount: 3, targetReps: 10, targetWeight: 75, restSeconds: 90, ...over,
-});
-
-const EXERCISES = [
-  exercise("ex-1", "Incline Dumbbell Press", "Elbows 45 degrees"),
-  exercise("ex-2", "Bent-Over Barbell Row", "Flat back, pull to the ribs"),
-  exercise("ex-3", "Overhead Press", "Squeeze glutes, bar close to the face"),
-];
-
-const WORKOUT: EngineWorkout = {
-  plan: {
-    id: "plan-1", ownerUserId: "glasses", title: "Upper Body A",
-    estimatedDurationMinutes: 52, createdAt: ts, updatedAt: ts,
+const TS = "2026-07-06T00:00:00.000Z";
+const FALLBACK: EngineWorkout[] = [
+  {
+    plan: { id: "fallback", ownerUserId: "glasses", title: "Full Body", estimatedDurationMinutes: 30, createdAt: TS, updatedAt: TS },
+    steps: [
+      { step: { id: "f1", workoutPlanId: "fallback", exerciseId: "fx1", orderIndex: 0, setCount: 3, targetReps: 10, targetWeight: 45, restSeconds: 90, cue: "Warm up first" }, exercise: { id: "fx1", name: "Goblet Squat", cues: ["Chest up"], createdAt: TS, updatedAt: TS } },
+    ],
   },
-  steps: [
-    { step: step("st-1", "ex-1", 0, { cue: "Elbows 45 degrees" }), exercise: EXERCISES[0]! },
-    { step: step("st-2", "ex-2", 1, { cue: "No momentum" }), exercise: EXERCISES[1]! },
-    { step: step("st-3", "ex-3", 2, { cue: "Brace hard" }), exercise: EXERCISES[2]! },
-  ],
+];
+const WORKOUTS: EngineWorkout[] = (GENERATED && GENERATED.length ? GENERATED : FALLBACK) as EngineWorkout[];
+
+const WEIGHT_STEP = 5; // lbs per swipe
+
+// --- persisted state (5MB localStorage is available to Web Apps) -------------
+
+const WEIGHTS_KEY = "setflow-weights"; // { [exerciseName]: number }
+const LAST_KEY = "setflow-last";       // { [dayTitle]: LastSession }
+
+type LastSession = {
+  durationMin: number;
+  totalSets: number;
+  perExercise: Record<string, { weight?: number; reps?: number }>;
+  when: number;
 };
 
-// --- remembered weights (5MB localStorage is available to Web Apps) -----------
-
-const WEIGHTS_KEY = "setflow-weights";
-function loadSavedWeights(): void {
-  try {
-    const saved = JSON.parse(localStorage.getItem(WEIGHTS_KEY) ?? "{}") as Record<string, number>;
-    for (const s of WORKOUT.steps) {
-      const w = saved[s.exercise.name];
-      if (typeof w === "number" && w > 0) s.step.targetWeight = w;
-    }
-  } catch { /* fresh start */ }
+function readJson<T>(key: string, fallback: T): T {
+  try { return JSON.parse(localStorage.getItem(key) ?? "") as T; } catch { return fallback; }
+}
+function applySavedWeights(): void {
+  const saved = readJson<Record<string, number>>(WEIGHTS_KEY, {});
+  for (const w of WORKOUTS) for (const s of w.steps) {
+    const v = saved[s.exercise.name];
+    if (typeof v === "number" && v > 0) s.step.targetWeight = v;
+  }
 }
 function saveWeights(snap: EngineSnapshot): void {
   try {
-    const saved = JSON.parse(localStorage.getItem(WEIGHTS_KEY) ?? "{}") as Record<string, number>;
+    const saved = readJson<Record<string, number>>(WEIGHTS_KEY, {});
     for (const r of snap.results) {
       if (r.status !== "skipped" && r.actualWeight != null) {
-        const ex = WORKOUT.steps.find((s) => s.step.id === r.workoutStepId)?.exercise.name;
-        if (ex) saved[ex] = r.actualWeight;
+        const name = exNameForStepId(r.workoutStepId);
+        if (name) saved[name] = r.actualWeight;
       }
     }
     localStorage.setItem(WEIGHTS_KEY, JSON.stringify(saved));
   } catch { /* storage full - fine */ }
 }
+function saveLastSession(dayTitle: string, snap: EngineSnapshot, durationMin: number): void {
+  try {
+    const all = readJson<Record<string, LastSession>>(LAST_KEY, {});
+    const perExercise: LastSession["perExercise"] = {};
+    for (const r of snap.results) {
+      if (r.status === "skipped" || r.actualWeight == null) continue;
+      const name = exNameForStepId(r.workoutStepId);
+      if (name) perExercise[name] = { weight: r.actualWeight, reps: r.actualReps };
+    }
+    all[dayTitle] = {
+      durationMin,
+      totalSets: snap.results.filter((r) => r.status === "completed").length,
+      perExercise,
+      when: Date.now(),
+    };
+    localStorage.setItem(LAST_KEY, JSON.stringify(all));
+  } catch { /* fine */ }
+}
 
-// --- rendering -----------------------------------------------------------------
+// --- app state ----------------------------------------------------------------
+
+type Mode = "home" | "workout";
+let mode: Mode = "home";
+let dayIndex = 0;
+let engine: WorkoutEngine | null = null;
+let curReps: number | null = null;   // app-level rep adjustment for the live set
+let lastSetKey = "";                  // detects when a fresh set begins
+let savedOnComplete = false;
+
+function day(): EngineWorkout { return WORKOUTS[dayIndex]!; }
+function exNameForStepId(id: string): string | undefined {
+  return day().steps.find((s) => s.step.id === id)?.exercise.name;
+}
+function cueForIndex(i: number): string | undefined {
+  const s = day().steps[i];
+  return s?.step.cue ?? s?.exercise.cues?.[0];
+}
+function lastForExercise(dayTitle: string, exName: string) {
+  return readJson<Record<string, LastSession>>(LAST_KEY, {})[dayTitle]?.perExercise?.[exName];
+}
+
+// --- DOM ----------------------------------------------------------------------
 
 const cardEl = document.getElementById("card")!;
 const hintEl = document.getElementById("hint")!;
-const pausedEl = document.getElementById("paused")!;
+const topEl = document.getElementById("topbar")!;
+const progEl = document.getElementById("progress")!;
+const fillEl = document.getElementById("progressfill")!;
 
-const esc = (t: string) =>
-  t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-const mmss = (total: number) => {
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-};
+const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const mmss = (total: number) => `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+const setProgress = (frac: number) => { (fillEl as HTMLElement).style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`; };
 
-function cardHtml(card: GlassesCard): string {
-  switch (card.kind) {
-    case "workout_start":
-      return `<div class="dim">READY</div><div class="big">${esc(card.workoutTitle)}</div>
-        <div class="mid">${card.exerciseCount} exercises${card.estimatedMinutes ? ` · ~${card.estimatedMinutes} min` : ""}</div>`;
+// --- rendering ----------------------------------------------------------------
+
+function renderHome(): void {
+  (progEl as HTMLElement).style.display = "none";
+  const w = day();
+  const mins = w.plan.estimatedDurationMinutes;
+  const last = readJson<Record<string, LastSession>>(LAST_KEY, {})[w.plan.title];
+  topEl.textContent = `SetFlow · ${dayIndex + 1} of ${WORKOUTS.length}`;
+  cardEl.innerHTML =
+    `<div class="dim">CHOOSE YOUR DAY</div>
+     <div class="big">${esc(w.plan.title)}</div>
+     <div class="mid">${w.steps.length} exercises${mins ? ` · ~${mins} min` : ""}</div>
+     ${last ? `<div class="tiny">last time: ${last.durationMin} min · ${last.totalSets} sets</div>` : ""}
+     <div class="dots">${WORKOUTS.map((_, i) => `<span class="${i === dayIndex ? "on" : ""}"></span>`).join("")}</div>`;
+  hintEl.textContent = "swipe ↑↓ choose · pinch to start";
+}
+
+function renderWorkout(snap: EngineSnapshot): void {
+  (progEl as HTMLElement).style.display = "block";
+  const c: any = snap.card;
+  const total = snap.totalExercises || 1;
+  const shownIndex = Math.min(snap.exerciseIndex + 1, total);
+  topEl.textContent = `${esc(day().plan.title)} · ${shownIndex}/${total}`;
+  setProgress(snap.exerciseIndex / total);
+
+  switch (c.kind) {
     case "exercise_preview":
-      return `<div class="dim">NEXT UP</div><div class="big">${esc(card.exerciseName)}</div>
-        <div class="mid">${card.setCount} sets${card.targetReps ? ` × ${card.targetReps}` : ""} · rest ${card.restSeconds}s</div>`;
-    case "demo":
-      return `<div class="dim">DEMO</div><div class="mid">${esc(card.exerciseName)}</div>
-        ${card.cue ? `<div class="dim">${esc(card.cue)}</div>` : ""}`;
-    case "active_set":
-      return `<div class="mid">${esc(card.exerciseName)}</div>
-        <div class="dim">SET ${card.setNumber} / ${card.setCount}</div>
-        ${card.remainingSeconds != null ? `<div class="huge">${mmss(card.remainingSeconds)}</div>` : ""}
-        <div class="big">${card.targetWeight != null ? `${card.targetWeight} ${card.unit}` : ""}${card.targetWeight != null && card.targetReps != null ? " × " : ""}${card.targetReps ?? ""}</div>`;
-    case "listening":
-      return `<div class="huge">🎙</div><div class="mid">Listening…</div>`;
-    case "confirmation":
-      return `<div class="dim">LOGGED</div>
-        <div class="big">${card.loggedWeight != null ? `${card.loggedWeight} ${card.unit}` : ""}${card.loggedWeight != null && card.loggedReps != null ? " × " : ""}${card.loggedReps ?? ""}</div>
-        <div class="dim">Rest ${card.restSeconds}s</div>`;
-    case "correction":
-      return `<div class="dim">WHICH ONE?</div>` +
-        card.options.map((o, i) => `<div class="mid">${i + 1}. ${o.weight ?? ""} × ${o.reps ?? ""}</div>`).join("");
+      cardEl.innerHTML =
+        `<div class="dim">NEXT UP</div><div class="big">${esc(c.exerciseName)}</div>
+         <div class="mid">${c.setCount} sets${c.targetReps ? ` × ${c.targetReps}` : ""} · rest ${c.restSeconds}s</div>`;
+      hintEl.textContent = "pinch to start · mid-pinch to exit";
+      break;
+
+    case "active_set": {
+      const weight = c.targetWeight;
+      const reps = curReps ?? c.targetReps;
+      const cue = cueForIndex(snap.exerciseIndex);
+      const last = lastForExercise(day().plan.title, c.exerciseName);
+      const lastStr = last && last.weight != null
+        ? `last: ${last.weight}${last.reps != null ? ` × ${last.reps}` : ""}` : "";
+      cardEl.innerHTML =
+        `<div class="mid">${esc(c.exerciseName)}</div>
+         <div class="dim">SET ${snap.setNumber} / ${snap.setCount}</div>
+         <div class="lift"><span class="dot"></span>LIFT NOW</div>
+         <div class="big">${weight != null ? `${weight} ${c.unit}` : ""}${weight != null && reps != null ? " × " : ""}${reps ?? ""}</div>
+         ${cue ? `<div class="dim">${esc(cue)}</div>` : ""}
+         ${lastStr ? `<div class="tiny">${lastStr}</div>` : ""}`;
+      hintEl.textContent = "←→ weight · ↑↓ reps · pinch = done · mid-pinch exit";
+      break;
+    }
+
     case "rest":
-      return `${card.exerciseName ? `<div class="mid">${esc(card.exerciseName)}</div>` : ""}
-        <div class="dim">REST</div><div class="huge">${mmss(card.remainingSeconds)}</div>
-        <div class="mid">Next: ${esc(card.nextLabel)}</div>`;
-    case "workout_complete":
-      return `<div class="big green">✔ Done</div>
-        <div class="mid">${card.totalSets} sets · ${card.durationMinutes} min</div>
-        ${card.message ? `<div class="dim">${esc(card.message)}</div>` : ""}`;
+      cardEl.innerHTML =
+        `${c.exerciseName ? `<div class="mid">${esc(c.exerciseName)}</div>` : ""}
+         <div class="dim">REST</div><div class="huge">${mmss(c.remainingSeconds)}</div>
+         <div class="mid">Next: ${esc(c.nextLabel)}</div>`;
+      hintEl.textContent = "pinch to skip rest · swipe ↑ add set · mid-pinch exit";
+      break;
+
+    case "workout_complete": {
+      setProgress(1);
+      const last = readJson<Record<string, LastSession>>(LAST_KEY, {})[day().plan.title];
+      const cmp = last ? `<div class="tiny">last time: ${last.durationMin} min · ${last.totalSets} sets</div>` : "";
+      cardEl.innerHTML =
+        `<div class="big green">✔ Done</div>
+         <div class="mid">${c.totalSets} sets · ${c.durationMinutes} min</div>
+         ${cmp}
+         ${c.message ? `<div class="dim">${esc(c.message)}</div>` : ""}`;
+      hintEl.textContent = "pinch to return to your days";
+      break;
+    }
+
+    default:
+      cardEl.innerHTML = `<div class="mid">${esc(c.exerciseName ?? "")}</div>`;
+      hintEl.textContent = "pinch to continue · mid-pinch exit";
   }
 }
 
-const HINTS: Partial<Record<EngineSnapshot["status"], string>> = {
-  workout_preview: "pinch to begin",
-  exercise_preview: "pinch to start the set",
-  demo: "pinch to start the set",
-  active_set: "pinch when done · swipe ↑ add set · ↓ skip",
-  resting: "pinch to skip rest · swipe ↑ add set",
-  exercise_complete: "pinch to skip rest",
-  workout_complete: "pinch to start again",
-};
-
-function render(snap: EngineSnapshot): void {
-  cardEl.innerHTML = cardHtml(snap.card);
-  hintEl.textContent = HINTS[snap.status] ?? "";
-  pausedEl.style.display = snap.status === "paused" ? "block" : "none";
+function rerender(): void {
+  if (mode === "home") renderHome();
+  else if (engine) renderWorkout(engine.snapshot());
 }
 
-// --- engine wiring ----------------------------------------------------------------
+// --- engine wiring ------------------------------------------------------------
 
-let engine = createWorkoutEngine(WORKOUT, { unit: "lb" });
-let saved = false;
-
-function boot(): void {
-  saved = false;
-  loadSavedWeights();
-  engine = createWorkoutEngine(WORKOUT, { unit: "lb" });
-  engine.subscribe((snap) => {
-    render(snap);
-    if (snap.status === "workout_complete" && !saved) {
-      saved = true;
-      saveWeights(snap);
-    }
-  });
-  engine.start();
+function onSnap(snap: EngineSnapshot): void {
+  if (snap.status === "active_set") {
+    const key = `${snap.exerciseIndex}-${snap.setNumber}`;
+    if (key !== lastSetKey) { lastSetKey = key; curReps = (snap.card as any).targetReps ?? null; }
+  }
+  if (snap.status === "workout_complete" && !savedOnComplete) {
+    savedOnComplete = true;
+    saveWeights(snap);
+    saveLastSession(day().plan.title, snap, (snap.card as any).durationMinutes ?? 0);
+  }
+  renderWorkout(snap);
 }
 
-setInterval(() => engine.tick(), 1000);
+function startDay(i: number): void {
+  dayIndex = i;
+  mode = "workout";
+  applySavedWeights();
+  curReps = null;
+  lastSetKey = "";
+  savedOnComplete = false;
+  engine = createWorkoutEngine(day(), { unit: "lb" });
+  engine.subscribe(onSnap);
+  engine.start();   // -> workout_preview
+  engine.next();    // -> straight into the first exercise preview
+}
 
-// Neural Band mapping: pinch = Enter, swipes = arrows, mid-pinch = Escape.
+function exitToHome(): void {
+  engine = null;
+  mode = "home";
+  renderHome();
+}
+
+function adjustWeight(delta: number): void {
+  if (!engine) return;
+  const cur = (engine.snapshot().card as any).targetWeight ?? 0;
+  engine.setWeightOverride(Math.max(0, cur + delta)); // notifies -> re-render
+}
+function adjustReps(delta: number): void {
+  if (!engine) return;
+  const snap = engine.snapshot();
+  const base = curReps ?? (snap.card as any).targetReps ?? 0;
+  curReps = Math.max(1, base + delta);
+  renderWorkout(snap); // app-level change; engine doesn't notify
+}
+
+setInterval(() => { if (mode === "workout" && engine) engine.tick(); }, 1000);
+
+// --- Neural Band input --------------------------------------------------------
+
 document.addEventListener("keydown", (e) => {
-  const status = engine.snapshot().status;
+  if (mode === "home") {
+    switch (e.key) {
+      case "ArrowUp": case "ArrowLeft":
+        dayIndex = (dayIndex - 1 + WORKOUTS.length) % WORKOUTS.length; renderHome(); break;
+      case "ArrowDown": case "ArrowRight":
+        dayIndex = (dayIndex + 1) % WORKOUTS.length; renderHome(); break;
+      case "Enter":
+        startDay(dayIndex); break;
+      default: return;
+    }
+    e.preventDefault();
+    return;
+  }
+
+  if (!engine) return;
+  const st = engine.snapshot().status;
   switch (e.key) {
     case "Enter":
-      if (status === "workout_preview") engine.next();
-      else if (status === "exercise_preview" || status === "demo") engine.startSet();
-      else if (status === "active_set") engine.completeSet();
-      else if (status === "resting" || status === "exercise_complete") engine.skipRest();
-      else if (status === "confirming_log") engine.confirmLog();
-      else if (status === "paused") engine.resume();
-      else if (status === "workout_complete") boot();
+      if (st === "exercise_preview") engine.startSet();
+      else if (st === "active_set") {
+        const snap = engine.snapshot();
+        engine.completeSet({ weight: (snap.card as any).targetWeight, reps: curReps ?? (snap.card as any).targetReps });
+      }
+      else if (st === "resting" || st === "exercise_complete") engine.skipRest();
+      else if (st === "workout_complete") exitToHome();
       break;
-    case "ArrowRight":
-      if (status === "resting" || status === "exercise_complete") engine.skipRest();
-      else engine.next();
+    case "Escape": // middle-finger pinch = get me out
+      exitToHome();
       break;
     case "ArrowLeft":
-      engine.previous();
+      if (st === "active_set") adjustWeight(-WEIGHT_STEP);
+      else if (st === "exercise_preview") engine.previous();
+      break;
+    case "ArrowRight":
+      if (st === "active_set") adjustWeight(WEIGHT_STEP);
       break;
     case "ArrowUp":
-      engine.addSet();
+      if (st === "active_set") adjustReps(1);
+      else if (st === "resting" || st === "exercise_complete") engine.addSet();
       break;
     case "ArrowDown":
-      engine.skipSet();
-      break;
-    case "Escape":
-      if (status === "paused") engine.resume();
-      else engine.pause();
+      if (st === "active_set") adjustReps(-1);
       break;
     default:
       return;
@@ -188,4 +302,7 @@ document.addEventListener("keydown", (e) => {
   e.preventDefault();
 });
 
-boot();
+// --- boot ---------------------------------------------------------------------
+
+applySavedWeights();
+renderHome();

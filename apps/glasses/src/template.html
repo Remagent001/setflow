@@ -10,14 +10,15 @@
 <meta name="theme-color" content="#000000">
 <style>
   /* Meta Ray-Ban Display rules: 600x600, black = transparent, bright text,
-     no scrolling. Neural Band: swipes = arrow keys, pinch = Enter. */
+     no scrolling. Neural Band: swipes = arrow keys, pinch = Enter,
+     middle-finger pinch = Escape. Same keys drive it on a desktop. */
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { background: #000; overflow: hidden; }
   #stage {
     width: 600px; height: 600px; margin: 0 auto; background: #000;
     color: #eaffff; font-family: system-ui, -apple-system, sans-serif;
     display: flex; flex-direction: column; align-items: center;
-    justify-content: center; text-align: center; gap: 22px; padding: 40px;
+    justify-content: center; text-align: center; gap: 20px; padding: 48px;
     position: relative;
   }
   .dim  { color: #9adfff; opacity: .85; font-size: 26px; }
@@ -25,19 +26,45 @@
   .big  { font-size: 58px; font-weight: 800; line-height: 1.08; }
   .huge { font-size: 96px; font-weight: 800; }
   .green { color: #7dffc8; }
+  .tiny  { color: #9adfff; opacity: .55; font-size: 22px; }
+  /* progress bar across today's plan */
+  #progress {
+    position: absolute; top: 0; left: 0; right: 0; height: 8px;
+    background: #0e2230; display: none;
+  }
+  #progressfill { height: 100%; width: 0%; background: #7dffc8; transition: width .3s ease; }
+  /* small label: which day + exercise number */
+  #topbar {
+    position: absolute; top: 22px; left: 0; right: 0;
+    color: #9adfff; opacity: .7; font-size: 20px; font-weight: 600;
+  }
   #hint {
-    position: absolute; bottom: 26px; left: 0; right: 0;
-    color: #9adfff; opacity: .6; font-size: 20px;
+    position: absolute; bottom: 22px; left: 0; right: 0;
+    color: #9adfff; opacity: .6; font-size: 19px; padding: 0 24px;
   }
-  #paused {
-    position: absolute; top: 26px; left: 0; right: 0;
-    color: #ffd479; font-size: 22px; font-weight: 700; display: none;
+  /* the "you should be lifting now" indicator */
+  .lift {
+    display: inline-flex; align-items: center; gap: 14px;
+    color: #7dffc8; font-weight: 800; font-size: 30px; letter-spacing: 3px;
   }
+  .lift .dot {
+    width: 24px; height: 24px; border-radius: 50%; background: #7dffc8;
+    box-shadow: 0 0 20px #7dffc8; animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1);    opacity: 1;   }
+    50%      { transform: scale(1.55); opacity: .45; }
+  }
+  /* day-picker dots */
+  .dots { display: flex; gap: 12px; justify-content: center; margin-top: 8px; }
+  .dots span { width: 12px; height: 12px; border-radius: 50%; background: #24414f; }
+  .dots span.on { background: #7dffc8; box-shadow: 0 0 10px #7dffc8; }
 </style>
 </head>
 <body>
 <div id="stage">
-  <div id="paused">PAUSED — pinch to resume</div>
+  <div id="progress"><div id="progressfill"></div></div>
+  <div id="topbar"></div>
   <div id="card"></div>
   <div id="hint"></div>
 </div>
