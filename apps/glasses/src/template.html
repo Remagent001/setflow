@@ -4,10 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=600, initial-scale=1, user-scalable=no">
 <title>SetFlow</title>
-<link rel="icon" type="image/png" href="favicon.png">
-<link rel="apple-touch-icon" href="favicon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="128x128" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#0d1117">
 <style>
   /* Meta Ray-Ban Display rules: 600x600, black = transparent, bright text,
      no scrolling. Neural Band: swipes = arrow keys, pinch = Enter,
@@ -59,6 +60,22 @@
   .dots { display: flex; gap: 12px; justify-content: center; margin-top: 8px; }
   .dots span { width: 12px; height: 12px; border-radius: 50%; background: #24414f; }
   .dots span.on { background: #7dffc8; box-shadow: 0 0 10px #7dffc8; }
+  /* home: day grid of cards */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 504px; }
+  .daycard {
+    background: #0e1a22; border: 2px solid #24414f; border-radius: 16px;
+    padding: 16px 18px; text-align: left; position: relative;
+  }
+  .daycard .dn { font-size: 26px; font-weight: 800; color: #eaffff; }
+  .daycard .dt { font-size: 22px; color: #9adfff; margin-top: 2px; }
+  .daycard .dc { font-size: 16px; color: #6a8290; margin-top: 6px; }
+  .daycard.done { opacity: .3; }
+  .daycard .check { position: absolute; top: 12px; right: 14px; color: #7dffc8; font-size: 24px; }
+  .daycard.sel { border-color: #7dffc8; box-shadow: 0 0 20px rgba(125, 255, 200, .55); }
+  .daycard.done.sel { opacity: .7; }
+  /* mid-workout menu */
+  .menuitem { font-size: 36px; font-weight: 700; color: #9adfff; opacity: .55; padding: 10px 0; }
+  .menuitem.sel { color: #7dffc8; opacity: 1; }
 </style>
 </head>
 <body>
