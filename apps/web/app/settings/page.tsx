@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "../../components/AppShell";
+import GlassesPairing from "../../components/GlassesPairing";
 
 export default function SettingsPage() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -56,6 +57,8 @@ export default function SettingsPage() {
           {chip("light", "Light")}
         </div>
       </div>
+
+      <GlassesPairing />
 
       <div className="card" style={{ marginTop: 14, color: "var(--muted)", fontSize: 13 }}>
         Weight units, voice logging, and privacy settings live in the phone app&apos;s Settings

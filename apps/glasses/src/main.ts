@@ -3,21 +3,27 @@
 // arrive as arrow keys, index pinch as Enter, middle-finger pinch as Escape
 // (per Meta's Web App docs) - the same keys drive it on a desktop for testing.
 //
-// Flow: HOME (Day 1-5 card grid, cycle tracking) -> pinch -> SUMMARY (every
+// The plan is now LIVE from the cloud: the glasses pair to a SetFlow account
+// with a device token in their URL (?t=...), pull that account's workouts, and
+// push finished sets back so they land in the web History/Reports. Everything
+// is offline-first - the plan renders from a local cache instantly and finished
+// workouts queue in an outbox that flushes when there's a connection. (See
+// sync.ts. Keith's real workouts are no longer baked into this public file.)
+//
+// Flow: HOME (day card grid, cycle tracking) -> pinch -> SUMMARY (every
 // exercise for that day, done ones checked off) -> swipe to pick ANY exercise,
 // pinch to start it, swipe LEFT to go back and pick a different day -> the set
 // flow (READY dial weight/reps -> pinch -> LIFT count-up -> pinch logs the set
 // -> REST between sets of the SAME exercise) -> automatically back to SUMMARY
-// when that exercise's sets are done -> once every exercise is done, the real
-// "Done" screen, and the day dims on the home grid.
+// when that exercise's sets are done -> once every exercise is done, the
+// "Done" screen (which also queues the session for sync), and the day dims.
 //
 // Each exercise runs its OWN single-step engine instance (not one engine for
 // the whole day) so picking exercises out of order can never falsely trigger
 // "workout complete" just because you happened to pick the positionally-last
 // one first - completion is tracked by this app from actual logged sets
-// (`allResults`), independent of engine internals. Weight AND reps both
-// persist across sets, across exercises you revisit, and forward to next
-// time. Middle-pinch opens Resume / Finish & save / Discard from anywhere.
+// (`allResults`), independent of engine internals. Middle-pinch opens
+// Resume / Finish & save / Discard from anywhere.
 
 import {
   createWorkoutEngine,
@@ -25,21 +31,25 @@ import {
   type EngineSnapshot,
   type EngineWorkout,
   type WorkoutEngine,
-} from "../../../packages/workout-engine/src/engine";
-import { WORKOUTS as GENERATED } from "./workouts.generated";
+} from "../../../packages/workout-engine/src/engine.ts";
+import {
+  clearTokenAndPlan,
+  enqueueSession,
+  fetchPlan,
+  flushOutbox,
+  getToken,
+  isConfigured,
+  loadCachedPlan,
+  newClientId,
+  outboxCount,
+  type SyncBundle,
+} from "./sync.ts";
 
-// --- workouts (Keith's real Day 1-5, baked in) with a tiny offline fallback --
+// --- workouts: LIVE from the cloud, cached locally --------------------------
 
-const TS = "2026-07-06T00:00:00.000Z";
-const FALLBACK: EngineWorkout[] = [
-  {
-    plan: { id: "fallback", ownerUserId: "glasses", title: "Day 1 · Full Body", estimatedDurationMinutes: 30, createdAt: TS, updatedAt: TS },
-    steps: [
-      { step: { id: "f1", workoutPlanId: "fallback", exerciseId: "fx1", orderIndex: 0, setCount: 3, targetReps: 10, targetWeight: 45, restSeconds: 90, cue: "Warm up first" }, exercise: { id: "fx1", name: "Goblet Squat", cues: ["Chest up"], createdAt: TS, updatedAt: TS } },
-    ],
-  },
-];
-const WORKOUTS: EngineWorkout[] = (GENERATED && GENERATED.length ? GENERATED : FALLBACK) as EngineWorkout[];
+let WORKOUTS: EngineWorkout[] = [];
+let token: string | null = null;
+let planFromCloud = false; // true once a real (non-empty) plan is loaded
 
 const WEIGHT_STEP = 5; // lbs per swipe
 const COLS = 2;        // day-grid columns
@@ -50,6 +60,8 @@ const WEIGHTS_KEY = "setflow-weights"; // { [exerciseName]: number }
 const REPS_KEY = "setflow-reps";       // { [exerciseName]: number }
 const LAST_KEY = "setflow-last";       // { [dayTitle]: LastSession }
 const CYCLE_KEY = "setflow-cycle";     // boolean[] — days done this cycle
+const CHECKPOINT_KEY = "sf.progress";  // in-flight day, survives reload/nav
+const CHECKPOINT_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6h - stale checkpoints expire
 
 type LastSession = {
   durationMin: number;
@@ -122,7 +134,7 @@ function firstUndoneDay(): number {
 
 // --- app state ----------------------------------------------------------------
 
-type Mode = "home" | "summary" | "workout";
+type Mode = "home" | "summary" | "workout" | "blocked";
 type Phase = "ready" | "lifting";
 let mode: Mode = "home";
 let homeSel = 0;                 // selected day card on the home grid
@@ -199,9 +211,52 @@ const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 const mmss = (total: number) => `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 const setProgress = (frac: number) => { (fillEl as HTMLElement).style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`; };
 
+/** One-line sync state for the home screen. */
+function syncLine(): string {
+  const pending = outboxCount();
+  if (pending > 0) return `⟳ ${pending} workout${pending === 1 ? "" : "s"} waiting to sync`;
+  return "✓ synced";
+}
+
+// --- rendering: connection / pairing screens ---------------------------------
+
+function renderPairScreen(revoked = false): void {
+  mode = "blocked";
+  (progEl as HTMLElement).style.display = "none";
+  setProgress(0);
+  topEl.textContent = "SetFlow";
+  cardEl.innerHTML = revoked
+    ? `<div class="big">Not connected</div>
+       <div class="mid">This glasses link was turned off.</div>
+       <div class="dim">Open SetFlow on your phone → Settings → Glasses → make a new link.</div>`
+    : `<div class="big">Let's pair up</div>
+       <div class="mid">Open SetFlow on your phone or PC</div>
+       <div class="dim">Settings → Glasses → "Connect your glasses", then open that link here.</div>`;
+  hintEl.textContent = "setflow-xi.vercel.app";
+}
+
+function renderConnecting(): void {
+  mode = "blocked";
+  (progEl as HTMLElement).style.display = "none";
+  topEl.textContent = "SetFlow";
+  cardEl.innerHTML = `<div class="big">Loading…</div><div class="dim">Getting your workouts</div>`;
+  hintEl.textContent = "";
+}
+
+function renderOfflineNoCache(): void {
+  mode = "blocked";
+  (progEl as HTMLElement).style.display = "none";
+  topEl.textContent = "SetFlow";
+  cardEl.innerHTML =
+    `<div class="big">Can't reach the cloud</div>
+     <div class="mid">Move closer to your phone and try again.</div>`;
+  hintEl.textContent = "it'll load automatically once you're back online";
+}
+
 // --- rendering: HOME (day grid) ------------------------------------------------
 
 function renderHome(): void {
+  mode = "home";
   (progEl as HTMLElement).style.display = "none";
   const done = loadCycle();
   const doneCount = done.filter(Boolean).length;
@@ -213,7 +268,7 @@ function renderHome(): void {
       `<div class="dn">${esc(dn)}</div><div class="dt">${esc(dt)}</div>` +
       `<div class="dc">${w.steps.length} exercises</div></div>`;
   }).join("");
-  cardEl.innerHTML = `<div class="grid">${cards}</div>`;
+  cardEl.innerHTML = `<div class="grid">${cards}</div><div class="tiny synced">${esc(syncLine())}</div>`;
   hintEl.textContent = "swipe to pick your day · pinch to start";
 }
 
@@ -318,16 +373,80 @@ function renderDoneScreen(durationMin: number, early: boolean): void {
   hintEl.textContent = "pinch to return to your days";
 }
 
+// --- in-progress checkpoint (survives reload + swipe-back-to-days) ------------
+// The live day (logged sets + weight/rep overrides + start time) is memory-only
+// until finishDay uploads it, so a reload or navigating away would lose it.
+// We snapshot it to localStorage on every change and restore it when the same
+// day is re-opened within 6h.
+
+type Checkpoint = {
+  dayIndex: number;
+  dayStartedAtMs: number | null;
+  results: EngineSetResult[];
+  weights: [string, number][];
+  reps: [string, number][];
+  savedAt: number;
+};
+function saveCheckpoint(): void {
+  if (sessionDayIndex == null) return;
+  try {
+    const cp: Checkpoint = {
+      dayIndex: sessionDayIndex,
+      dayStartedAtMs,
+      results: allResults,
+      weights: [...weightOverride.entries()],
+      reps: [...repOverride.entries()],
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(cp));
+  } catch { /* storage full - fine */ }
+}
+function loadCheckpoint(): Checkpoint | null {
+  const cp = readJson<Checkpoint | null>(CHECKPOINT_KEY, null);
+  if (!cp || typeof cp.dayIndex !== "number") return null;
+  if (Date.now() - (cp.savedAt ?? 0) > CHECKPOINT_MAX_AGE_MS) { clearCheckpoint(); return null; }
+  return cp;
+}
+function clearCheckpoint(): void {
+  try { localStorage.removeItem(CHECKPOINT_KEY); } catch { /* fine */ }
+}
+function restoreFromCheckpoint(cp: Checkpoint): void {
+  sessionDayIndex = cp.dayIndex;
+  dayStartedAtMs = cp.dayStartedAtMs ?? Date.now();
+  allResults = Array.isArray(cp.results) ? cp.results : [];
+  weightOverride.clear();
+  for (const [k, v] of cp.weights ?? []) weightOverride.set(k, v);
+  repOverride.clear();
+  for (const [k, v] of cp.reps ?? []) repOverride.set(k, v);
+}
+/** Wipe the live day from memory and disk (Discard, or after a synced finish). */
+function clearSession(): void {
+  allResults = [];
+  weightOverride.clear();
+  repOverride.clear();
+  sessionDayIndex = null;
+  dayStartedAtMs = null;
+  clearCheckpoint();
+}
+
 // --- day / exercise lifecycle --------------------------------------------------
 
 function openDaySummary(i: number): void {
-  if (i !== sessionDayIndex) {
-    // A different day than whatever was in progress: start it clean.
+  const cp = loadCheckpoint();
+  if (sessionDayIndex === i) {
+    // Already the in-progress day in memory - resume as-is.
+  } else if (cp && cp.dayIndex === i && i < WORKOUTS.length) {
+    // Re-opening the in-progress day after a reload or a trip back to the
+    // day grid - restore the logged sets and overrides.
+    restoreFromCheckpoint(cp);
+  } else {
+    // A different day: start it clean (abandons any other in-progress day).
     allResults = [];
     weightOverride.clear();
     repOverride.clear();
     dayStartedAtMs = Date.now();
     sessionDayIndex = i;
+    saveCheckpoint();
   }
   dayIndex = i;
   applySaved();
@@ -363,6 +482,7 @@ function onExerciseSnap(snap: EngineSnapshot): void {
     // so its own "workout complete" can never be a false positive from
     // picking exercises out of order).
     allResults.push(...snap.results);
+    saveCheckpoint(); // persist logged sets before doing anything else
     engine = null;
     if (allExercisesDone()) finishDay(false);
     else { mode = "summary"; sumSel = firstUndoneExercise(); renderSummary(); }
@@ -373,11 +493,57 @@ function onExerciseSnap(snap: EngineSnapshot): void {
 
 function finishDay(early: boolean): void {
   const durationMin = dayStartedAtMs ? Math.max(0, Math.round((Date.now() - dayStartedAtMs) / 60000)) : 0;
+  const durationSeconds = dayStartedAtMs ? Math.max(0, Math.round((Date.now() - dayStartedAtMs) / 1000)) : 0;
   saveWeightsAndReps(allResults);
   saveLastSession(day().plan.title, allResults, durationMin);
   if (!early) markDayDone(dayIndex);
+  queueSync(durationSeconds);
+  clearCheckpoint(); // the day is now in the outbox + local history; done screen still reads memory
   mode = "workout"; // renderDoneScreen draws into the same #card area
   renderDoneScreen(durationMin, early);
+}
+
+/** Build a session bundle from what was logged and hand it to the outbox. */
+function queueSync(durationSeconds: number): void {
+  if (!token || !planFromCloud) return;
+  const logs = allResults
+    .filter((r) => r.status !== "skipped")
+    .map((r) => ({
+      workoutStepId: r.workoutStepId,
+      exerciseId: r.exerciseId,
+      setNumber: r.setNumber,
+      targetWeight: r.targetWeight,
+      targetReps: r.targetReps,
+      targetDurationSeconds: r.targetDurationSeconds,
+      actualWeight: r.actualWeight,
+      actualReps: r.actualReps,
+      actualDurationSeconds: r.actualDurationSeconds,
+      unit: r.unit,
+      status: r.status,
+    }));
+  if (!logs.length) return;
+
+  // Finishing weight/reps per step -> the plan's new defaults, cloud-side.
+  const roll = new Map<string, { targetWeight?: number; targetReps?: number }>();
+  for (const r of allResults) {
+    if (r.status === "skipped") continue;
+    const cur = roll.get(r.workoutStepId) ?? {};
+    if (r.actualWeight != null) cur.targetWeight = r.actualWeight;
+    if (r.actualReps != null) cur.targetReps = r.actualReps;
+    roll.set(r.workoutStepId, cur);
+  }
+
+  const bundle: SyncBundle = {
+    clientId: newClientId(),
+    planId: day().plan.id,
+    startedAt: new Date(dayStartedAtMs ?? Date.now()).toISOString(),
+    durationSeconds,
+    status: "completed",
+    logs,
+    rollforward: [...roll.entries()].map(([stepId, v]) => ({ stepId, ...v })),
+  };
+  enqueueSession(bundle);
+  void flushAndRefresh();
 }
 
 function exitToHome(): void {
@@ -410,12 +576,13 @@ function selectMenu(): void {
   if (menuSel === 0) { closeMenu(); return; }              // Resume
   if (menuSel === 1) {                                      // Finish & save
     menuOpen = false;
-    if (engine) allResults.push(...engine.snapshot().results); // keep whatever was logged mid-exercise
+    if (engine) { allResults.push(...engine.snapshot().results); saveCheckpoint(); } // keep mid-exercise sets
     engine = null;
     finishDay(true);
     return;
   }
-  exitToHome();                                             // Discard: throw it all away
+  clearSession();                                          // Discard: throw it all away
+  exitToHome();
 }
 
 function adjustWeight(delta: number): void {
@@ -425,6 +592,7 @@ function adjustWeight(delta: number): void {
   const s = stepAt(curExerciseIndex);
   if (!s) return;
   weightOverride.set(s.step.id, Math.max(0, cur + delta));
+  saveCheckpoint();
   renderWorkout(snap); // app-level change; engine doesn't track weight display itself
 }
 function adjustReps(delta: number): void {
@@ -434,6 +602,7 @@ function adjustReps(delta: number): void {
   if (!s) return;
   const base = repsForIndex(curExerciseIndex, (snap.card as any).targetReps) ?? 0;
   repOverride.set(s.step.id, Math.max(1, base + delta));
+  saveCheckpoint();
   renderWorkout(snap);
 }
 
@@ -451,7 +620,7 @@ function moveHomeSel(dir: "left" | "right" | "up" | "down"): void {
 // One-second clock: the count-up stopwatch while lifting, else the current
 // exercise engine's own rest countdown (between sets of the same exercise).
 setInterval(() => {
-  if (mode !== "workout" || !engine) return;
+  if (mode !== "workout" || !engine || menuOpen) return; // don't paint over the quit menu
   if (engine.snapshot().status === "active_set") {
     if (phase === "lifting") { liftElapsed += 1; renderWorkout(engine.snapshot()); }
   } else if (engine.snapshot().status === "resting") {
@@ -474,7 +643,10 @@ document.addEventListener("keydown", (e) => {
     return;
   }
 
+  if (mode === "blocked") return; // pair / loading / offline screens ignore input
+
   if (mode === "home") {
+    if (!WORKOUTS.length) return;
     switch (e.key) {
       case "ArrowLeft": moveHomeSel("left"); break;
       case "ArrowRight": moveHomeSel("right"); break;
@@ -503,8 +675,8 @@ document.addEventListener("keydown", (e) => {
 
   // mode === "workout"
   if (!engine) {
-    // On the whole-day Done screen: pinch returns home.
-    if (e.key === "Enter") exitToHome();
+    // On the whole-day Done screen: pinch clears the finished day and returns home.
+    if (e.key === "Enter") { clearSession(); exitToHome(); }
     e.preventDefault();
     return;
   }
@@ -546,8 +718,77 @@ document.addEventListener("keydown", (e) => {
   e.preventDefault();
 });
 
-// --- boot ---------------------------------------------------------------------
+// --- cloud plan + sync --------------------------------------------------------
 
-applySaved();
-homeSel = firstUndoneDay();
-renderHome();
+/** Flush the outbox; if the server rejected anything as stale, refetch the
+ * plan for next time. Refresh the home sync line if it's showing. */
+async function flushAndRefresh(): Promise<void> {
+  if (!token) return;
+  try {
+    const summary = await flushOutbox(token);
+    if (summary.deadlettered > 0) {
+      try {
+        const r = await fetchPlan(token);
+        if ("workouts" in r) applyFreshPlan(r.workouts); // clamps homeSel; skips if mid-workout
+      } catch { /* offline; try later */ }
+    }
+    if (mode === "home") renderHome();
+  } catch { /* offline; the online listener retries */ }
+}
+
+/** Apply a freshly fetched plan, but never yank the ground out from under an
+ * in-progress workout - only swap while the user is on home / a blocked screen. */
+function applyFreshPlan(workouts: EngineWorkout[]): void {
+  planFromCloud = workouts.length > 0;
+  if (mode === "workout" || mode === "summary") return; // defer to next boot
+  WORKOUTS = workouts;
+  applySaved();
+  if (WORKOUTS.length) { homeSel = firstUndoneDay(); renderHome(); }
+  else renderPairScreen();
+}
+
+async function boot(): Promise<void> {
+  token = getToken();
+  if (!token || !isConfigured()) { renderPairScreen(); return; }
+
+  const cached = loadCachedPlan();
+  if (cached) {
+    WORKOUTS = cached;
+    planFromCloud = true;
+    applySaved();
+    homeSel = firstUndoneDay();
+    renderHome();
+  } else {
+    renderConnecting();
+  }
+
+  try {
+    const result = await fetchPlan(token);
+    if ("workouts" in result) {
+      applyFreshPlan(result.workouts);
+    } else if (result.error === "invalid_token") {
+      // Token was revoked (or is bad): lock the device out even if a plan was
+      // cached, and drop the stale token + plan so it can't keep showing data.
+      clearTokenAndPlan();
+      token = null;
+      WORKOUTS = [];
+      planFromCloud = false;
+      renderPairScreen(true);
+    } else if (!cached) {
+      renderOfflineNoCache();
+    }
+  } catch {
+    if (!cached) renderOfflineNoCache();
+  }
+
+  void flushAndRefresh();
+}
+
+// Retry the initial load / flush the outbox whenever we regain connectivity.
+window.addEventListener("online", () => {
+  if (!token) return;
+  if (!WORKOUTS.length) { void boot(); return; }
+  void flushAndRefresh();
+});
+
+void boot();

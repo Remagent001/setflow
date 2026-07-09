@@ -36,6 +36,28 @@ Honest list of what the MVP does not do yet, and why.
   See `docs/META_INTEGRATION.md` for the two integration paths and the
   recommended first hardware step (on-glasses Web App).
 
+## Glasses ↔ cloud sync (2026-07-09)
+- **Device-token security model**: the glasses have no keyboard, so they
+  authenticate with a durable token carried in their URL
+  (`/glasses-app/?t=sfg_...`). The dashboard mints it (Settings → Glasses) and
+  stores only its SHA-256 hash; the raw token is shown once. The token is
+  scoped to exactly two actions — read the owner's plans, write the owner's
+  logged sets — via two `security definer` RPCs. It carries **no** email,
+  journals, or account control. Trade-off: the URL is effectively a password
+  for workout data. Anyone who photographs the glasses URL could read/append
+  the owner's workouts until the link is **Removed** (revoked) from the
+  dashboard. Acceptable for a no-keyboard device; revocation is instant.
+- **Sync is bundle-on-finish, not live**: logged sets upload as one bundle when
+  a workout ends (queued in an offline outbox, retried on reconnect), not
+  set-by-set in real time.
+- **Stale plan → dead-letter**: if the plan is edited on the web after the
+  glasses cached it, an in-flight sync bundle referencing a removed step is
+  dead-lettered locally (kept in `sf.deadletter`, not retried) and the glasses
+  refetch the plan. Those specific sets don't reach the cloud — rare, and the
+  next workout syncs normally.
+- **Web-logged history isn't pulled back onto the glasses**: the glasses'
+  "vs last time" still comes from their own localStorage, not the cloud.
+
 ## Platform
 - **Expo SDK is pinned to 54** to match Expo Go on the test iPhone. Do not
   bump it without checking the phone's supported SDK first.
