@@ -197,6 +197,25 @@ export class WorkoutEngine {
     this.notify();
   }
 
+  /**
+   * Jump directly to a specific exercise (out-of-order pickers, e.g. a
+   * glasses/mobile "choose your exercise" summary screen). Resets the set
+   * number to 1 and lands on that exercise's preview; already-logged results
+   * for other exercises are untouched. No-op while idle, paused, or after the
+   * workout is complete.
+   */
+  goToExercise(index: number): void {
+    if (this.status === "idle" || this.status === "workout_complete" || this.status === "paused") return;
+    if (this.steps.length === 0) return;
+    this.exerciseIndex = Math.max(0, Math.min(index, this.steps.length - 1));
+    this.setNumber = 1;
+    this.pendingLog = null;
+    this.restRemainingSeconds = 0;
+    this.setRemainingSeconds = null;
+    this.status = "exercise_preview";
+    this.notify();
+  }
+
   // --- navigation ----------------------------------------------------------
 
   /** idle → workout_preview (the "ready to start" card). */

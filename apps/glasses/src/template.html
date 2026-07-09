@@ -76,6 +76,18 @@
   /* mid-workout menu */
   .menuitem { font-size: 36px; font-weight: 700; color: #9adfff; opacity: .55; padding: 10px 0; }
   .menuitem.sel { color: #7dffc8; opacity: 1; }
+  /* summary: every exercise for the day */
+  .exlist { display: flex; flex-direction: column; gap: 8px; width: 504px; }
+  .exrow {
+    background: #0e1a22; border: 2px solid #24414f; border-radius: 12px;
+    padding: 10px 16px; text-align: left; position: relative;
+  }
+  .exrow .en { font-size: 22px; font-weight: 700; color: #eaffff; }
+  .exrow .es { font-size: 15px; color: #6a8290; margin-top: 2px; }
+  .exrow.done { opacity: .35; }
+  .exrow .check { position: absolute; top: 10px; right: 14px; color: #7dffc8; font-size: 19px; }
+  .exrow.sel { border-color: #7dffc8; box-shadow: 0 0 16px rgba(125, 255, 200, .5); }
+  .exrow.done.sel { opacity: .7; }
 </style>
 </head>
 <body>

@@ -490,3 +490,42 @@ test("zero rest advances immediately without a rest state", () => {
   assert.equal(snap.status, "active_set");
   assert.equal(snap.setNumber, 2);
 });
+
+test("goToExercise jumps directly to a picked exercise and resets its set number", () => {
+  const engine = createWorkoutEngine(sampleWorkout());
+  engine.start();
+  engine.next();       // exercise_preview, index 0
+  engine.startSet();
+  engine.completeSet(); // logs a set for exercise 0; advances (2 sets on step 0)
+  engine.goToExercise(1);
+  let snap = engine.snapshot();
+  assert.equal(snap.status, "exercise_preview");
+  assert.equal(snap.exerciseIndex, 1);
+  assert.equal(snap.setNumber, 1);
+  assert.equal(snap.results.length, 1, "the earlier logged set is untouched");
+
+  engine.goToExercise(0); // jump back; earlier result for exercise 0 still there
+  snap = engine.snapshot();
+  assert.equal(snap.exerciseIndex, 0);
+  assert.equal(snap.results.length, 1);
+
+  engine.goToExercise(99); // out of range clamps to the last exercise
+  assert.equal(engine.snapshot().exerciseIndex, 1);
+});
+
+test("goToExercise is a no-op when idle, paused, or workout complete", () => {
+  const engine = createWorkoutEngine(sampleWorkout());
+  engine.goToExercise(1); // idle
+  assert.equal(engine.snapshot().status, "idle");
+
+  engine.start();
+  engine.next();
+  engine.pause();
+  engine.goToExercise(1); // paused
+  assert.equal(engine.snapshot().status, "paused");
+  engine.resume();
+
+  engine.end(); // -> workout_complete
+  engine.goToExercise(1);
+  assert.equal(engine.snapshot().status, "workout_complete");
+});
