@@ -69,3 +69,122 @@ input:focus {
   border-radius: 12px;
   padding: 20px;
 }
+
+/* ---- App shell: sidebar on desktop, slide-in drawer on mobile ---- */
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: 210px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sidebar-brand {
+  padding: 0 10px 14px;
+  font-weight: 700;
+  font-size: 18px;
+}
+.nav-link {
+  display: flex;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--muted);
+}
+.nav-link.active {
+  background: var(--panel2);
+  color: var(--text);
+  font-weight: 600;
+}
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.topbar-spacer {
+  flex: 1;
+}
+.topbar-email {
+  color: var(--muted);
+  font-size: 13px;
+}
+.topbar-brand {
+  display: none;
+  font-weight: 700;
+  font-size: 17px;
+}
+.hamburger {
+  display: none;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.sidebar-backdrop {
+  display: none;
+}
+.page-main {
+  width: 100%;
+  max-width: 1000px;
+  padding: 24px;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 244px;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: 2px 0 18px rgba(0, 0, 0, 0.45);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-backdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  .hamburger {
+    display: inline-flex;
+  }
+  .topbar-brand {
+    display: block;
+  }
+  .topbar-email {
+    display: none;
+  }
+  .topbar {
+    padding: 10px 14px;
+  }
+  .page-main {
+    padding: 16px 14px;
+  }
+}

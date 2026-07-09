@@ -100,14 +100,35 @@ export default function GlassesPreviewPage() {
   const [log, setLog] = useState<MockGlassesEvent[]>([]);
   const [listening, setListening] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<GlassesCard | null>(null);
 
   useEffect(() => {
-    const offCard = adapter.onCardChange(setCard);
+    const offCard = adapter.onCardChange((c) => {
+      cardRef.current = c;
+      setCard(c);
+    });
     const offEvent = adapter.onEvent((e) => setLog((prev) => [...prev.slice(-49), e]));
     adapter.connect();
     adapter.getCapabilities().then(setCaps);
-    adapter.onGesture(() => {
-      // Registered so gesture wiring is exercised end to end; the log shows them.
+    adapter.onGesture((gesture) => {
+      // Drive the mock lens like the real glasses: swipes/pinch step through the
+      // card flow so the preview actually moves (not just the event log).
+      const seq = SAMPLE_CARDS;
+      const cur = cardRef.current;
+      let target = 0;
+      if (cur) {
+        const idx = Math.max(0, seq.findIndex((s) => s.card.kind === cur.kind));
+        target = idx;
+        if (gesture === "swipe_forward" || gesture === "pinch" || gesture === "tap") {
+          target = Math.min(idx + 1, seq.length - 1);
+        } else if (gesture === "swipe_back" || gesture === "double_tap") {
+          target = Math.max(idx - 1, 0);
+        } else if (gesture === "long_press") {
+          target = 0;
+        }
+      }
+      const nextCard = seq[target]?.card;
+      if (nextCard) adapter.showCard(nextCard).catch(() => {});
     });
     return () => {
       offCard();
