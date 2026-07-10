@@ -58,6 +58,21 @@ Honest list of what the MVP does not do yet, and why.
 - **Web-logged history isn't pulled back onto the glasses**: the glasses'
   "vs last time" still comes from their own localStorage, not the cloud.
 
+## Exercise media & recording (2026-07-09)
+- **The exercise-media bucket is public-by-URL**: the no-auth glasses need to
+  load exercise images by plain URL, so the bucket is public with unguessable
+  uuid filenames under the owner's folder (writes/deletes are owner-scoped by
+  RLS). Anyone who obtains a file's exact URL can view that file. Same risk
+  class as the glasses pairing URL; revisit with signed URLs when Trainer mode
+  lands.
+- **No recording FROM the glasses**: Meta's platform does not give web apps
+  camera or mic access — glasses-camera capture requires a native companion
+  app (the DAT-SDK route proven on LabelLens; parked, not yet scoped). Today's
+  path: record on the phone via the exercise page ("Record video" opens the
+  camera) — the clip is tagged to that exercise in the cloud.
+- **Media isn't offline-cached on the glasses**: exercise images load live;
+  with no connection the NEXT UP card just shows text (the image hides itself).
+
 ## Platform
 - **Expo SDK is pinned to 54** to match Expo Go on the test iPhone. Do not
   bump it without checking the phone's supported SDK first.

@@ -82,7 +82,15 @@ export function isConfigured(): boolean {
   return Boolean(SUPABASE_URL && SUPABASE_ANON);
 }
 
-async function rpc(fn: string, body: Record<string, unknown>): Promise<any> {
+/** What our two RPCs can return (trusted server, loose but typed). */
+type RpcResponse = {
+  workouts?: EngineWorkout[];
+  sessionId?: string;
+  idempotent?: boolean;
+  error?: string;
+};
+
+async function rpc(fn: string, body: Record<string, unknown>): Promise<RpcResponse> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
     headers: {
@@ -93,7 +101,7 @@ async function rpc(fn: string, body: Record<string, unknown>): Promise<any> {
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`rpc ${fn} failed: ${res.status}`);
-  return res.json();
+  return (await res.json()) as RpcResponse;
 }
 
 export type PlanResult = { workouts: EngineWorkout[] } | { error: string };
@@ -123,6 +131,21 @@ export function enqueueSession(bundle: SyncBundle): void {
 }
 export function outboxCount(): number {
   return readJson<SyncBundle[]>(OUTBOX_KEY, []).length;
+}
+
+/** Replace a still-queued bundle's logs/rollforward (post-finish rep fixes on
+ * the done card). No-op if the bundle already left the queue (synced) - in
+ * that case the fix arrived too late, which the UI treats as best-effort. */
+export function rewriteQueuedSession(
+  clientId: string,
+  patch: Pick<SyncBundle, "logs" | "rollforward">
+): boolean {
+  const outbox = readJson<SyncBundle[]>(OUTBOX_KEY, []);
+  const i = outbox.findIndex((b) => b.clientId === clientId);
+  if (i < 0) return false;
+  outbox[i] = { ...outbox[i]!, ...patch };
+  writeJson(OUTBOX_KEY, outbox);
+  return true;
 }
 
 /**

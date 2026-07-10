@@ -33,6 +33,9 @@ export type Exercise = {
 export type ExerciseMedia = {
   id: string;
   exerciseId: string;
+  /** Who uploaded it (absent = built-in library media). Users can attach media
+   * to GLOBAL exercises too, so ownership lives on the media row itself. */
+  ownerUserId?: string;
   mediaType: "video" | "image";
   url: string;
   thumbnailUrl?: string;

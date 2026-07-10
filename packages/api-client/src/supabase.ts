@@ -88,7 +88,13 @@ export function createSupabaseApiClient(
       insertOne<Exercise>("exercises", { ...input, ownerUserId: await uid(input.ownerUserId) }),
     updateExercise: (id, patch) => updateOne<Exercise>("exercises", id, patch),
     deleteExercise: (id) => deleteOne("exercises", id),
-    addExerciseMedia: (input) => insertOne<ExerciseMedia>("exercise_media", input),
+    addExerciseMedia: async (input) =>
+      insertOne<ExerciseMedia>("exercise_media", {
+        ...input,
+        // Media ownership is per-row (users attach photos to GLOBAL exercises
+        // too); RLS requires the stamp to match the session user.
+        ownerUserId: await uid(input.ownerUserId),
+      }),
     listExerciseMedia: (exerciseId) =>
       selectAll<ExerciseMedia>("exercise_media", { exercise_id: exerciseId }),
     deleteExerciseMedia: (id) => deleteOne("exercise_media", id),
