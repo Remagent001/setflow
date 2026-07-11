@@ -148,41 +148,66 @@ export function rewriteQueuedSession(
   return true;
 }
 
+/** Bundles the server permanently rejected (stale plan / deleted steps) -
+ * archived rather than lost; surfaced as a count in the UI. */
+export function deadletterCount(): number {
+  return readJson<SyncBundle[]>(DEAD_KEY, []).length;
+}
+export function archiveUnsyncable(bundle: SyncBundle): void {
+  const dead = readJson<SyncBundle[]>(DEAD_KEY, []);
+  dead.push(bundle);
+  writeJson(DEAD_KEY, dead);
+}
+
 /**
  * Try to upload every queued workout, in order. Successes (including the
  * server reporting an already-synced duplicate) drop from the queue;
  * stale-plan rejections move to a dead-letter list (they'll never succeed as
  * is, so don't retry forever); network / bad-token failures stay queued.
+ *
+ * Flushes are SERIALIZED (boot, the online listener, and END can all fire
+ * concurrently), and the final write removes only the bundles this flush
+ * actually processed - a bundle enqueued mid-flight is never clobbered.
  */
-export async function flushOutbox(token: string): Promise<FlushSummary> {
-  const outbox = readJson<SyncBundle[]>(OUTBOX_KEY, []);
-  if (!outbox.length) return { synced: 0, deadlettered: 0, remaining: 0 };
+let inFlightFlush: Promise<FlushSummary> | null = null;
+export function flushOutbox(token: string): Promise<FlushSummary> {
+  if (inFlightFlush) return inFlightFlush;
+  inFlightFlush = doFlush(token).finally(() => { inFlightFlush = null; });
+  return inFlightFlush;
+}
 
-  const remaining: SyncBundle[] = [];
+async function doFlush(token: string): Promise<FlushSummary> {
+  const snapshot = readJson<SyncBundle[]>(OUTBOX_KEY, []);
+  if (!snapshot.length) return { synced: 0, deadlettered: 0, remaining: 0 };
+
+  const processed = new Set<string>(); // clientIds synced or dead-lettered
   let synced = 0;
   let deadlettered = 0;
 
-  for (const bundle of outbox) {
+  for (const bundle of snapshot) {
     try {
       const res = await rpc("glasses_sync_session", { p_token: token, p_session: bundle });
       if (res && res.sessionId) {
         synced++;
+        processed.add(bundle.clientId);
         continue;
       }
       if (res && res.error === "stale_plan") {
-        const dead = readJson<SyncBundle[]>(DEAD_KEY, []);
-        dead.push(bundle);
-        writeJson(DEAD_KEY, dead);
+        archiveUnsyncable(bundle);
         deadlettered++;
+        processed.add(bundle.clientId);
         continue;
       }
       // invalid_token or anything unexpected: keep it, try again later.
-      remaining.push(bundle);
     } catch {
-      remaining.push(bundle); // offline / server down: retry later
+      // offline / server down: keep it, retry later
     }
   }
 
+  // Merge-safe write: drop ONLY what this flush processed; keep everything
+  // else, including bundles enqueued while requests were in flight.
+  const current = readJson<SyncBundle[]>(OUTBOX_KEY, []);
+  const remaining = current.filter((b) => !processed.has(b.clientId));
   writeJson(OUTBOX_KEY, remaining);
   return { synced, deadlettered, remaining: remaining.length };
 }
