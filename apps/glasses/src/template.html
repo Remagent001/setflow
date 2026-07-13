@@ -83,8 +83,16 @@
     max-width: 360px; max-height: 190px; border-radius: 14px;
     object-fit: cover; border: 2px solid #24414f;
   }
-  /* summary: every exercise for the day */
-  .exlist { display: flex; flex-direction: column; gap: 8px; width: 504px; }
+  /* summary: every exercise for the day. The screen itself never scrolls, so
+     long lists live inside this fixed window; JS re-centres the selected row
+     after every render (scrollbar hidden - swipes drive it, not touch). */
+  .exlist {
+    display: flex; flex-direction: column; gap: 8px; width: 540px;
+    max-height: 500px; overflow-y: auto; overflow-x: hidden;
+    padding: 12px 18px; position: relative; scrollbar-width: none;
+  }
+  .exlist::-webkit-scrollbar { display: none; }
+  .exrow { flex: 0 0 auto; }
   .exrow {
     background: #0e1a22; border: 2px solid #24414f; border-radius: 12px;
     padding: 10px 16px; text-align: left; position: relative;

@@ -437,6 +437,15 @@ function muscleIndex(): { group: string; items: MuscleItem[] }[] {
     .sort((a, b) => a.group.localeCompare(b.group));
 }
 
+// Long lists overflow the fixed 600x600 screen. Every render rebuilds the list
+// (resetting its scroll), so re-centre the selected row in the window here.
+function centerSel(): void {
+  const list = cardEl.querySelector(".exlist") as HTMLElement | null;
+  const sel = list?.querySelector(".sel") as HTMLElement | null;
+  if (!list || !sel || list.scrollHeight <= list.clientHeight) return;
+  list.scrollTop = sel.offsetTop - (list.clientHeight - sel.offsetHeight) / 2;
+}
+
 function renderMuscles(): void {
   mode = "muscles";
   (progEl as HTMLElement).style.display = "none";
@@ -451,6 +460,7 @@ function renderMuscles(): void {
       `<div class="es">${g.items.length} exercise${g.items.length === 1 ? "" : "s"}${done ? ` · ${done} done` : ""}</div></div>`;
   }).join("");
   cardEl.innerHTML = `<div class="exlist">${rows}</div>`;
+  centerSel();
   hintEl.textContent = "swipe ↑↓ pick muscle · pinch to open · swipe ← back";
 }
 
@@ -472,6 +482,7 @@ function renderMList(): void {
       `<div class="es">${s?.step.setCount ?? "?"} sets${reps ? ` × ${reps}` : ""}</div></div>`;
   }).join("");
   cardEl.innerHTML = `<div class="exlist">${rows}</div>`;
+  centerSel();
   hintEl.textContent = "swipe ↑↓ pick exercise · pinch to start · swipe ← back";
 }
 
@@ -493,6 +504,7 @@ function renderSummary(): void {
       `<div class="es">${s.step.setCount} sets${reps ? ` × ${reps}` : ""}</div></div>`;
   }).join("");
   cardEl.innerHTML = `<div class="exlist">${rows}</div>`;
+  centerSel();
   hintEl.textContent = "swipe ↑↓ pick exercise · pinch to start · swipe ← back to menu";
 }
 let sumSel = 0;
